@@ -1,12 +1,19 @@
 import QtQuick 2.3
 import QtQuick.Window 2.2
 
+import LevelOfDetail 1.0
+
 Window {
     id: main_window
     width: 600
     height: 800
     color: "black"
     visible: true
+
+    GLView {  // direct OpenGL rendering
+        id: opengl_view
+        anchors.fill: parent
+    }
 
     MouseArea {  // close on click
         anchors.fill: parent;
