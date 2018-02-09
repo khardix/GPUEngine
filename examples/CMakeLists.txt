@@ -17,6 +17,7 @@ set(examplesList  EmptyWindow
                   Simple_QtgeGL
                   Simple_QtgeSG
                   Simple_Animation
+                  LevelOfDetail
 )
 
 foreach(example IN LISTS examplesList)
