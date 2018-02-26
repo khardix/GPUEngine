@@ -62,10 +62,23 @@ public slots:
     /// @brief Render the scene.
     void paint();
 
+protected:
+    /// @brief Initialize OpenGL context.
+    static std::unique_ptr<ge::gl::Context> init_opengl();
+    /// @brief Compile and link the shader program.
+    static std::shared_ptr<ge::gl::Program> link_shader_program();
+    /// @brief Load model data into buffers.
+    static std::shared_ptr<ge::gl::VertexArray> load_model();
+
 private:
-    std::unique_ptr<ge::gl::Context> m_context = nullptr;
-    QQuickWindow *                   m_window = nullptr;
-    QSize                            m_viewport_size = {0, 0};
+    // Qt data
+    QQuickWindow *m_window = nullptr;
+    QSize         m_viewport_size = {0, 0};
+
+    // GPUEngine data
+    std::unique_ptr<ge::gl::Context>     m_context = nullptr;
+    std::shared_ptr<ge::gl::VertexArray> m_vao = nullptr;
+    std::shared_ptr<ge::gl::Program>     m_program = nullptr;
 };
 
 // Inline and template members {{{
@@ -88,5 +101,14 @@ inline GLView::Renderer &GLView::Renderer::viewport(QSize size) noexcept(
 {
     m_viewport_size = std::move(size);
     return *this;
+}
+
+/**
+ * @returns Interface to OpenGL calls.
+ */
+inline std::unique_ptr<ge::gl::Context> GLView::Renderer::init_opengl()
+{
+    ge::gl::init();
+    return std::make_unique<ge::gl::Context>();
 }
 // Inline and template members }}}
