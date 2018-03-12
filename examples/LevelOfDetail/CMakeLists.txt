@@ -6,9 +6,9 @@ project(LevelOfDetail LANGUAGES CXX)
 
 # GPUEngine dependency
 if (NOT TARGET geGL)
-    find_package(GPUEngine COMPONENTS geGL QUIET)
+    find_package(GPUEngine COMPONENTS geGL geSG QUIET)
 endif (NOT TARGET geGL)
-list(APPEND external_deps geGL)
+list(APPEND external_deps geGL geSG)
 
 # Qt5
 find_package(Qt5 COMPONENTS Qml Quick QUIET)
@@ -28,7 +28,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 add_executable(${PROJECT_NAME}
-    main.cc gl_view.cc
+    main.cc gl_view.cc scene.cc
     resources.qrc)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_14)
 target_link_libraries(${PROJECT_NAME} ${external_deps})
