@@ -28,7 +28,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 add_executable(${PROJECT_NAME}
-    main.cc gl_view.cc scene.cc
+    main.cc gl_view.cc scene.cc visualization.cc
     resources.qrc)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_14)
 target_link_libraries(${PROJECT_NAME} ${external_deps})

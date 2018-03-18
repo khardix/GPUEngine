@@ -5,10 +5,15 @@
 
 #include <vector>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include <QQuickWindow>
 #undef GL_GLEXT_VERSION  // use OpenGL through GPUEngine, respect its constants
 
 #include "gl_view.hh"
+#include "visualization.hh"
 
 /** Create internal signal-slot connections. */
 GLView::GLView()
@@ -140,7 +145,10 @@ void GLView::Renderer::paint()
         m_context = init_opengl();
     }
     if (!m_program) {
-        m_program = link_shader_program();
+        m_program = make_uniform_program();
+
+        m_program->setMatrix4fv("modelview", glm::value_ptr(glm::mat4(1.f)));
+        m_program->setMatrix4fv("projection", glm::value_ptr(glm::mat4(1.f)));
     }
     if (!m_vao) {
         m_vao = load_model();
@@ -152,6 +160,7 @@ void GLView::Renderer::paint()
 
     // bind the vertices and run the program
     m_program->use();
+
     m_vao->bind();
 
     m_context->glDrawArrays(GL_TRIANGLES, 0, 3);
