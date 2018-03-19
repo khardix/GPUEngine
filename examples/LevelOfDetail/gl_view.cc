@@ -86,16 +86,39 @@ std::shared_ptr<ge::gl::VertexArray> GLView::Renderer::load_model()
     // static variable -> data available for the whole duration of program run
     // clang-format off
     static const auto vertices = std::vector<GLfloat>{
-        -1.f, -1.f, 0.f,
-         1.f, -1.f, 0.f,
-         0.f,  1.f, 0.f,
+        -1.f, -1.f,  1.f,
+         1.f, -1.f,  1.f,
+        -1.f,  1.f,  1.f,
+         1.f,  1.f,  1.f,
+        -1.f, -1.f, -1.f,
+         1.f, -1.f, -1.f,
+        -1.f,  1.f, -1.f,
+         1.f,  1.f, -1.f,
+    };
+    static const auto elements = std::vector<GLubyte>{
+        0, 1, 3,
+        0, 3, 2,
+        1, 5, 7,
+        1, 7, 3,
+        5, 4, 6,
+        5, 6, 7,
+        4, 0, 2,
+        4, 2, 6,
+        0, 1, 5,
+        0, 5, 4,
+        2, 3, 7,
+        2, 7, 6,
     };
     // clang-format on
 
-    auto buffer = std::make_shared<ge::gl::Buffer>(
+    auto vertex_buffer = std::make_unique<ge::gl::Buffer>(
         vertices.size() * sizeof(GLfloat), vertices.data());
+    auto element_buffer = std::make_unique<ge::gl::Buffer>(
+        elements.size() * sizeof(GLubyte), elements.data());
+
     auto result = std::make_shared<ge::gl::VertexArray>();
-    result->addAttrib(buffer, 0, 3, GL_FLOAT);
+    result->addAttrib(std::move(vertex_buffer), 0, 3, GL_FLOAT);
+    result->addElementBuffer(std::move(element_buffer));
 
     return result;
 }
@@ -154,17 +177,26 @@ void GLView::Renderer::paint()
         m_vao = load_model();
     }
 
-    // paint the whole screen purple
+    // clear screen to black
     m_context->glClearColor(.0f, 0.f, .0f, 0.f);
     m_context->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // bind the vertices and run the program
-    m_program->use();
+    {
+        m_program->use();
+        m_vao->bind();
 
-    m_vao->bind();
+        m_context->glDrawElements(
+            GL_TRIANGLES,
+            static_cast<GLsizei>(
+                m_vao->getElement()->getSize() / sizeof(GLubyte)),
+            GL_UNSIGNED_BYTE,
+            nullptr);
 
-    m_context->glDrawArrays(GL_TRIANGLES, 0, 3);
+        m_vao->unbind();
+    }
 
     // clean after OpenGL manipulations
+    // WARNING: Zero-fills element buffer, unbind VAO before!
     m_window->resetOpenGLState();
 }
