@@ -169,9 +169,17 @@ void GLView::Renderer::paint()
     }
     if (!m_program) {
         m_program = make_uniform_program();
+        auto model_position = glm::vec3(0.f, 0.f, -10.f);
+        auto aspect_ratio = static_cast<float>(m_viewport_size.width())
+            / static_cast<float>(m_viewport_size.height());
 
-        m_program->setMatrix4fv("modelview", glm::value_ptr(glm::mat4(1.f)));
-        m_program->setMatrix4fv("projection", glm::value_ptr(glm::mat4(1.f)));
+        m_program->setMatrix4fv(
+            "modelview",
+            glm::value_ptr(glm::translate(glm::mat4(1.f), model_position)));
+        m_program->setMatrix4fv(
+            "projection",
+            glm::value_ptr(glm::perspective(
+                glm::radians(45.f), aspect_ratio, 0.1f, 100.f)));
     }
     if (!m_vao) {
         m_vao = load_model();
