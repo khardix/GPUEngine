@@ -33,6 +33,7 @@ void GLView::change_window(QQuickWindow *window)
         return;
     }
 
+    // Ensure synchronization between component and renderer
     connect(
         window,
         &QQuickWindow::beforeSynchronizing,
@@ -44,6 +45,14 @@ void GLView::change_window(QQuickWindow *window)
         &QQuickWindow::sceneGraphInvalidated,
         this,
         &GLView::reset_renderer,
+        Qt::DirectConnection);
+
+    // Repaint the scene after rotation
+    connect(
+        this,
+        &GLView::update_rotation,
+        window,
+        &QQuickWindow::update,
         Qt::DirectConnection);
 
     window->setClearBeforeRendering(false);
@@ -59,6 +68,16 @@ void GLView::sync_renderer_state()
     // create and connect new renderer, if necessary
     if (!m_renderer) {
         m_renderer = std::make_unique<Renderer>();
+
+        // update scene for painting
+        connect(
+            this,
+            &GLView::update_rotation,
+            m_renderer.get(),
+            &Renderer::update_rotation,
+            Qt::DirectConnection);
+
+        // paint the scene behind QML widgets
         connect(
             parent_window,
             &QQuickWindow::beforeRendering,
@@ -76,6 +95,35 @@ void GLView::sync_renderer_state()
 void GLView::reset_renderer() noexcept
 {
     m_renderer.reset(nullptr);
+}
+
+/** Calculate the difference between starting and current point
+ * and notifies the renderer.
+ * @param[in] target The target point of the rotation.
+ */
+void GLView::rotation_changed(QPointF target) noexcept
+{
+    // calculate the step size
+    auto delta = target - m_rotation_origin;
+    m_rotation_origin = std::move(target);  // make step
+
+    // convert the step into renderer coordinates
+    auto dx = static_cast<float>(delta.x());
+    auto dy = -static_cast<float>(delta.y());
+    emit update_rotation(glm::radians(dx), glm::radians(dy));
+}
+
+/** Translate a rotation to a quaternion.
+ * @param[in] delta The rotation change in X and Y axis, in radians.
+ */
+void GLView::Renderer::update_rotation(float dx, float dy) noexcept
+{
+    static const auto AROUND_X_AXIS = glm::vec3{1.f, 0.f, 0.f};
+    static const auto AROUND_Y_AXIS = glm::vec3{0.f, 1.f, 0.f};
+
+    m_scene_rotation *= glm::angleAxis(dx, AROUND_Y_AXIS);
+    m_scene_rotation *= glm::angleAxis(dy, AROUND_X_AXIS);
+    m_scene_rotation = glm::normalize(m_scene_rotation);
 }
 
 /** Provides data for the shader program (currently hardcoded).
@@ -169,13 +217,9 @@ void GLView::Renderer::paint()
     }
     if (!m_program) {
         m_program = make_uniform_program();
-        auto model_position = glm::vec3(0.f, 0.f, -10.f);
         auto aspect_ratio = static_cast<float>(m_viewport_size.width())
             / static_cast<float>(m_viewport_size.height());
 
-        m_program->setMatrix4fv(
-            "modelview",
-            glm::value_ptr(glm::translate(glm::mat4(1.f), model_position)));
         m_program->setMatrix4fv(
             "projection",
             glm::value_ptr(glm::perspective(
@@ -186,12 +230,21 @@ void GLView::Renderer::paint()
     }
 
     // clear screen to black
+    m_context->glDisable(GL_BLEND);
     m_context->glClearColor(.0f, 0.f, .0f, 0.f);
     m_context->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    // calculate current model position
+    m_program->use();
+
+    static const auto model_mat
+        = glm::translate(glm::mat4(1.f), glm::vec3(0.f, 0.f, -10.f));
+    const auto view_mat = glm::mat4_cast(m_scene_rotation);
+
+    m_program->setMatrix4fv("modelview", glm::value_ptr(model_mat * view_mat));
+
     // bind the vertices and run the program
     {
-        m_program->use();
         m_vao->bind();
 
         m_context->glDrawElements(

@@ -7,7 +7,11 @@
 
 #include <memory>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include <QObject>
+#include <QPointF>
 #include <QQuickItem>
 
 #include <geGL/geGL.h>
@@ -23,11 +27,22 @@ class GLView : public QQuickItem {
 public:
     explicit GLView();
 
+signals:
+    /// @brief Notify the renderer of a rotation change.
+    void update_rotation(float dx, float dy);
+
 public slots:
     /// @brief Synchronize renderer and QML state.
     void sync_renderer_state();
     /// @brief Reset renderer (i.e. on invalidated scene graph).
     void reset_renderer() noexcept;
+
+    /// @brief User has started rotation.
+    void rotation_start(QPointF origin) noexcept;
+    /// @brief Rotation was changed.
+    void rotation_changed(QPointF target) noexcept;
+    /// @brief Current rotation was finished.
+    void rotation_finished() noexcept;
 
 private slots:
     /// @brief Attach self to new window.
@@ -37,6 +52,7 @@ private:
     class Renderer;
 
     std::unique_ptr<Renderer> m_renderer = nullptr;
+    QPointF                   m_rotation_origin = {0.0, 0.0};
 };
 
 /** @brief OpenGL renderer for the GLView component. */
@@ -62,6 +78,9 @@ public slots:
     /// @brief Render the scene.
     void paint();
 
+    /// @brief Update scene rotation.
+    void update_rotation(float dx, float dy) noexcept;
+
 protected:
     /// @brief Initialize OpenGL context.
     static std::unique_ptr<ge::gl::Context> init_opengl();
@@ -74,6 +93,8 @@ private:
     // Qt data
     QQuickWindow *m_window = nullptr;
     QSize         m_viewport_size = {0, 0};
+    glm::fquat    m_scene_rotation
+        = glm::angleAxis(0.f, glm::normalize(glm::vec3(1.f)));
 
     // GPUEngine data
     std::unique_ptr<ge::gl::Context>     m_context = nullptr;
@@ -82,6 +103,20 @@ private:
 };
 
 // Inline and template members {{{
+/** Remembers the staring point of current rotation.
+ * @param[in] origin Starting point of the rotation.
+ */
+inline void GLView::rotation_start(QPointF origin) noexcept
+{
+    m_rotation_origin = std::move(origin);
+}
+
+/** Reset the rotation. */
+inline void GLView::rotation_finished() noexcept
+{
+    m_rotation_origin = QPointF{0.0, 0.0};
+}
+
 /**
  * @param[in] window Pointer to new parent window.
  * @returns Reference to modified self.

@@ -15,9 +15,13 @@ Window {
         anchors.fill: parent
     }
 
-    MouseArea {  // close on click
+    MouseArea {  // rotate scene on drag
         anchors.fill: parent;
-        onClicked: { Qt.quit(); }
+        onPressed: { opengl_view.rotation_start(Qt.point(mouse.x, mouse.y)); }
+        onReleased: { opengl_view.rotation_finished(); }
+        onPositionChanged: {
+            opengl_view.rotation_changed(Qt.point(mouse.x, mouse.y));
+        }
     }
 
     Rectangle {
