@@ -47,10 +47,16 @@ void GLView::change_window(QQuickWindow *window)
         &GLView::reset_renderer,
         Qt::DirectConnection);
 
-    // Repaint the scene after rotation
+    // Repaint the scene after rotation and zoom
     connect(
         this,
         &GLView::update_rotation,
+        window,
+        &QQuickWindow::update,
+        Qt::DirectConnection);
+    connect(
+        this,
+        &GLView::update_zoom,
         window,
         &QQuickWindow::update,
         Qt::DirectConnection);
@@ -75,6 +81,12 @@ void GLView::sync_renderer_state()
             &GLView::update_rotation,
             m_renderer.get(),
             &Renderer::update_rotation,
+            Qt::DirectConnection);
+        connect(
+            this,
+            &GLView::update_zoom,
+            m_renderer.get(),
+            &Renderer::update_zoom,
             Qt::DirectConnection);
 
         // paint the scene behind QML widgets
@@ -109,7 +121,7 @@ void GLView::rotation_changed(QPointF target) noexcept
 
     // convert the step into renderer coordinates
     auto dx = static_cast<float>(delta.x());
-    auto dy = -static_cast<float>(delta.y());
+    auto dy = static_cast<float>(delta.y());
     emit update_rotation(glm::radians(dx), glm::radians(dy));
 }
 
@@ -237,9 +249,10 @@ void GLView::Renderer::paint()
     // calculate current model position
     m_program->use();
 
-    static const auto model_mat
-        = glm::translate(glm::mat4(1.f), glm::vec3(0.f, 0.f, -10.f));
-    const auto view_mat = glm::mat4_cast(m_scene_rotation);
+    const auto model_mat = glm::mat4(1.f);
+    const auto view_mat
+        = glm::translate(glm::mat4(1.f), glm::vec3(0.f, 0.f, m_scene_zoom))
+        * glm::mat4_cast(m_scene_rotation);
 
     m_program->setMatrix4fv("modelview", glm::value_ptr(model_mat * view_mat));
 

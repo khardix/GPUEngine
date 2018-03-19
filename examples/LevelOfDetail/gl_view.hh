@@ -30,6 +30,8 @@ public:
 signals:
     /// @brief Notify the renderer of a rotation change.
     void update_rotation(float dx, float dy);
+    /// @brief Notify the renderer of a zoom change.
+    void update_zoom(float delta);
 
 public slots:
     /// @brief Synchronize renderer and QML state.
@@ -80,6 +82,8 @@ public slots:
 
     /// @brief Update scene rotation.
     void update_rotation(float dx, float dy) noexcept;
+    /// @brief Update scene zoom.
+    void update_zoom(float delta) noexcept;
 
 protected:
     /// @brief Initialize OpenGL context.
@@ -95,6 +99,7 @@ private:
     QSize         m_viewport_size = {0, 0};
     glm::fquat    m_scene_rotation
         = glm::angleAxis(0.f, glm::normalize(glm::vec3(1.f)));
+    float m_scene_zoom = -glm::radians(360.f);
 
     // GPUEngine data
     std::unique_ptr<ge::gl::Context>     m_context = nullptr;
@@ -145,5 +150,14 @@ inline std::unique_ptr<ge::gl::Context> GLView::Renderer::init_opengl()
 {
     ge::gl::init();
     return std::make_unique<ge::gl::Context>();
+}
+
+/** Updates scene zoom.
+ * @param[in] delta Positive means zoom in, negative zoom out.
+ */
+inline void GLView::Renderer::update_zoom(float delta) noexcept
+{
+    // value adjustments chosen empirically for better feel
+    m_scene_zoom += glm::radians(delta / 2);
 }
 // Inline and template members }}}

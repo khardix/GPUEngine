@@ -22,6 +22,9 @@ Window {
         onPositionChanged: {
             opengl_view.rotation_changed(Qt.point(mouse.x, mouse.y));
         }
+        onWheel: {
+            opengl_view.update_zoom(wheel.angleDelta.y);
+        }
     }
 
     Rectangle {
