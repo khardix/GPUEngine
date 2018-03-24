@@ -133,9 +133,12 @@ void GLView::Renderer::update_rotation(float dx, float dy) noexcept
     static const auto AROUND_X_AXIS = glm::vec3{1.f, 0.f, 0.f};
     static const auto AROUND_Y_AXIS = glm::vec3{0.f, 1.f, 0.f};
 
-    m_scene_rotation *= glm::angleAxis(dx, AROUND_Y_AXIS);
-    m_scene_rotation *= glm::angleAxis(dy, AROUND_X_AXIS);
-    m_scene_rotation = glm::normalize(m_scene_rotation);
+    auto world_rotation = glm::normalize(
+        glm::angleAxis(dx, AROUND_Y_AXIS) * glm::angleAxis(dy, AROUND_X_AXIS));
+
+    m_scene_rotation = glm::normalize(
+        m_scene_rotation * glm::inverse(m_scene_rotation) * world_rotation
+        * m_scene_rotation);
 }
 
 /** Provides data for the shader program (currently hardcoded).
