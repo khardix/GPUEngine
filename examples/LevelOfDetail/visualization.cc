@@ -14,13 +14,10 @@
 static const auto UNIFORM_VERTEX_CODE = std::string{R"vertex(
 #version 430 core
 
-uniform mat4 modelview;
-uniform mat4 projection;
-
 layout (location = 0) in vec3 model_vertex;
 
 void main() {
-    gl_Position = projection * modelview * vec4(model_vertex, 1.0);
+    gl_Position = vec4(model_vertex, 1.0);
 }
 )vertex"};
 
@@ -31,11 +28,32 @@ static const auto UNIFORM_GEOMETRY_CODE = std::string{R"geometry(
 layout (triangles) in;
 layout (triangle_strip, max_vertices = 3) out;
 
-void main() {
-    int i = 0;
+uniform mat4 modelview;
+uniform mat4 projection;
+uniform vec3 light_pos = vec3(0.0, 0.0, 100.0);
 
+out GS_OUT {
+    flat vec3 N;
+    flat vec3 L;
+    flat vec3 V;
+} gs_out;
+
+void main() {
+    // calculate the normal
+    vec3 side_a = gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz;
+    vec3 side_b = gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz;
+    vec3 normal = normalize(cross(side_a, side_b));
+
+    // generate transformed vertices
+    int i = 0;
+    vec4 P = vec4(1.0);
     for (i = 0; i < gl_in.length(); ++i) {
-        gl_Position = gl_in[i].gl_Position; EmitVertex();
+        P = modelview * gl_in[i].gl_Position;
+        gs_out.N = mat3(modelview) * normal;
+        gs_out.L = light_pos - P.xyz;
+        gs_out.V = -P.xyz;
+
+        gl_Position = projection * P; EmitVertex();
     }
     EndPrimitive();
 }
@@ -45,12 +63,29 @@ void main() {
 static const auto UNIFORM_FRAGMENT_CODE = std::string{R"fragment(
 #version 430 core
 
-uniform vec3 base_color = vec3(0.5, 0.2, 0.7);
+uniform vec3 ambient = vec3(0.1, 0.1, 0.1);
+uniform vec3 diffuse_albedo = vec3(0.5, 0.2, 0.7);
+uniform vec3 specular_albedo = vec3(0.3);
+uniform float specular_power = 32.0;
+
+in GS_OUT {
+    flat vec3 N;
+    flat vec3 L;
+    flat vec3 V;
+} fs_in;
 
 out vec3 color;
 
 void main() {
-    color = base_color;
+    vec3 N = normalize(fs_in.N);
+    vec3 L = normalize(fs_in.L);
+    vec3 V = normalize(fs_in.V);
+
+    vec3 R = reflect(-L, N);
+    vec3 diffuse = max(dot(N, L), 0.0) * diffuse_albedo;
+    vec3 specular = pow(max(dot(R, V), 0.0), specular_power) * specular_albedo;
+
+    color = diffuse + specular + ambient;
 }
 )fragment"};
 
