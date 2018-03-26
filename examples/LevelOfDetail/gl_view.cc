@@ -100,7 +100,7 @@ void GLView::sync_renderer_state()
 
     // point the renderer to correct window and reset viewport
     m_renderer->window(parent_window);
-    m_renderer->viewport(parent_window->size());
+    m_renderer->viewport_size(parent_window->size());
 }
 
 /** Reset the renderer. */
@@ -133,12 +133,12 @@ void GLView::Renderer::update_rotation(float dx, float dy) noexcept
     static const auto AROUND_X_AXIS = glm::vec3{1.f, 0.f, 0.f};
     static const auto AROUND_Y_AXIS = glm::vec3{0.f, 1.f, 0.f};
 
+    // rotation in projected coordinates
     auto world_rotation = glm::normalize(
         glm::angleAxis(dx, AROUND_Y_AXIS) * glm::angleAxis(dy, AROUND_X_AXIS));
 
-    m_scene_rotation = glm::normalize(
-        m_scene_rotation * glm::inverse(m_scene_rotation) * world_rotation
-        * m_scene_rotation);
+    m_rotation = glm::normalize(
+        m_rotation * glm::inverse(m_rotation) * world_rotation * m_rotation);
 }
 
 /** Provides data for the shader program (currently hardcoded).
@@ -186,40 +186,6 @@ std::shared_ptr<ge::gl::VertexArray> GLView::Renderer::load_model()
     return result;
 }
 
-/** Provides the shader program.
- * The shader source is currently hardcoded.
- * @returns Compiled and linked shader program.
- */
-std::shared_ptr<ge::gl::Program> GLView::Renderer::link_shader_program()
-{
-    using namespace std::literals::string_literals;
-    using ge::gl::Program;
-    using ge::gl::Shader;
-
-    static const auto vertex_shader_code = R"vertex(
-        #version 430 core
-
-        layout(location = 0) in vec3 model_vertex;
-
-        void main() {
-            gl_Position = vec4(model_vertex, 1.0);
-        }
-    )vertex"s;
-    static const auto fragment_shader_code = R"fragment(
-        #version 430 core
-
-        out vec4 color;
-
-        void main() {
-            color = vec4(1, 0, 0, 1);
-        }
-    )fragment"s;
-
-    return std::make_shared<Program>(
-        std::make_shared<Shader>(GL_VERTEX_SHADER, vertex_shader_code),
-        std::make_shared<Shader>(GL_FRAGMENT_SHADER, fragment_shader_code));
-}
-
 /** Render the item's contents. */
 void GLView::Renderer::paint()
 {
@@ -230,19 +196,27 @@ void GLView::Renderer::paint()
     if (!m_context) {
         m_context = init_opengl();
     }
-    if (!m_program) {
-        m_program = make_uniform_program();
-        auto aspect_ratio = static_cast<float>(m_viewport_size.width())
-            / static_cast<float>(m_viewport_size.height());
 
-        m_program->setMatrix4fv(
-            "projection",
-            glm::value_ptr(glm::perspective(
-                glm::radians(45.f), aspect_ratio, 0.1f, 100.f)));
+    if (!m_visualization) {
+        m_visualization = make_uniform_program();
     }
-    if (!m_vao) {
-        m_vao = load_model();
+    if (!m_scene) {
+        m_scene = load_model();
     }
+
+    // calculate matrices
+    const auto model_matrix = glm::mat4(1.f);
+    const auto view_matrix = [this] {
+        const auto position
+            = glm::translate(glm::mat4(1.f), glm::vec3(0.f, 0.f, m_zoom));
+        const auto rotation = glm::mat4_cast(m_rotation);
+        return position * rotation;
+    }();
+    const auto proj_matrix = [this] {
+        const auto aspect_ratio = static_cast<float>(m_viewport_size.width())
+            / static_cast<float>(m_viewport_size.height());
+        return glm::perspective(45.f, aspect_ratio, 0.1f, 100.f);
+    }();
 
     // clear screen to black
     m_context->glDisable(GL_BLEND);
@@ -250,27 +224,23 @@ void GLView::Renderer::paint()
     m_context->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // calculate current model position
-    m_program->use();
-
-    const auto model_mat = glm::mat4(1.f);
-    const auto view_mat
-        = glm::translate(glm::mat4(1.f), glm::vec3(0.f, 0.f, m_scene_zoom))
-        * glm::mat4_cast(m_scene_rotation);
-
-    m_program->setMatrix4fv("modelview", glm::value_ptr(model_mat * view_mat));
+    m_visualization->use();
+    m_visualization->setMatrix4fv("model", glm::value_ptr(model_matrix));
+    m_visualization->setMatrix4fv("view", glm::value_ptr(view_matrix));
+    m_visualization->setMatrix4fv("projection", glm::value_ptr(proj_matrix));
 
     // bind the vertices and run the program
     {
-        m_vao->bind();
+        m_scene->bind();
 
         m_context->glDrawElements(
             GL_TRIANGLES,
             static_cast<GLsizei>(
-                m_vao->getElement()->getSize() / sizeof(GLubyte)),
+                m_scene->getElement()->getSize() / sizeof(GLubyte)),
             GL_UNSIGNED_BYTE,
             nullptr);
 
-        m_vao->unbind();
+        m_scene->unbind();
     }
 
     // clean after OpenGL manipulations

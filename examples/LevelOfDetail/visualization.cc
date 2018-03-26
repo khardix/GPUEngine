@@ -28,7 +28,8 @@ static const auto UNIFORM_GEOMETRY_CODE = std::string{R"geometry(
 layout (triangles) in;
 layout (triangle_strip, max_vertices = 3) out;
 
-uniform mat4 modelview;
+uniform mat4 model;
+uniform mat4 view;
 uniform mat4 projection;
 uniform vec3 light_pos = vec3(0.0, 0.0, 100.0);
 
@@ -48,8 +49,8 @@ void main() {
     int i = 0;
     vec4 P = vec4(1.0);
     for (i = 0; i < gl_in.length(); ++i) {
-        P = modelview * gl_in[i].gl_Position;
-        gs_out.N = mat3(modelview) * normal;
+        P = view * model * gl_in[i].gl_Position;
+        gs_out.N = mat3(view * model) * normal;
         gs_out.L = light_pos - P.xyz;
         gs_out.V = -P.xyz;
 

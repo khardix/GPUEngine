@@ -15,6 +15,7 @@
 #include <QQuickItem>
 
 #include <geGL/geGL.h>
+#include <geSG/Scene.h>
 
 
 /** @brief QML component that displays the rendering.
@@ -72,14 +73,12 @@ public:
 
     /// @brief Reset parent window of this renderer's component.
     Renderer &window(QQuickWindow *window) noexcept;
-    /// @brief Reset the available viewport size.
-    Renderer &viewport(QSize size) noexcept(
-        std::is_nothrow_move_assignable<QSize>::value);
 
 public slots:
+    /// @brief Set viewport size.
+    void viewport_size(QSize size) noexcept;
     /// @brief Render the scene.
     void paint();
-
     /// @brief Update scene rotation.
     void update_rotation(float dx, float dy) noexcept;
     /// @brief Update scene zoom.
@@ -88,23 +87,24 @@ public slots:
 protected:
     /// @brief Initialize OpenGL context.
     static std::unique_ptr<ge::gl::Context> init_opengl();
-    /// @brief Compile and link the shader program.
-    static std::shared_ptr<ge::gl::Program> link_shader_program();
     /// @brief Load model data into buffers.
     static std::shared_ptr<ge::gl::VertexArray> load_model();
 
 private:
     // Qt data
     QQuickWindow *m_window = nullptr;
-    QSize         m_viewport_size = {0, 0};
-    glm::fquat    m_scene_rotation
-        = glm::angleAxis(0.f, glm::normalize(glm::vec3(1.f)));
-    float m_scene_zoom = -glm::radians(360.f);
+    QSize         m_viewport_size = {};
 
     // GPUEngine data
-    std::unique_ptr<ge::gl::Context>     m_context = nullptr;
-    std::shared_ptr<ge::gl::VertexArray> m_vao = nullptr;
-    std::shared_ptr<ge::gl::Program>     m_program = nullptr;
+    std::unique_ptr<ge::gl::Context> m_context = nullptr;
+
+    // Scene and its state
+    std::shared_ptr<ge::gl::VertexArray> m_scene = nullptr;
+    glm::fquat                           m_rotation = {};  // identity
+    float                                m_zoom = -10.f;
+
+    // Visualisation
+    std::unique_ptr<ge::gl::Program> m_visualization = nullptr;
 };
 
 // Inline and template members {{{
@@ -123,23 +123,20 @@ inline void GLView::rotation_finished() noexcept
 }
 
 /**
+ * @param[in] size New viewport size.
+ */
+inline void GLView::Renderer::viewport_size(QSize size) noexcept
+{
+    m_viewport_size = std::move(size);
+}
+
+/**
  * @param[in] window Pointer to new parent window.
  * @returns Reference to modified self.
  */
 inline GLView::Renderer &GLView::Renderer::window(QQuickWindow *window) noexcept
 {
     m_window = window;
-    return *this;
-}
-
-/**
- * @param[in] size New size of the viewport.
- * @returns Reference to modified self.
- */
-inline GLView::Renderer &GLView::Renderer::viewport(QSize size) noexcept(
-    std::is_nothrow_move_assignable<QSize>::value)
-{
-    m_viewport_size = std::move(size);
     return *this;
 }
 
@@ -158,6 +155,6 @@ inline std::unique_ptr<ge::gl::Context> GLView::Renderer::init_opengl()
 inline void GLView::Renderer::update_zoom(float delta) noexcept
 {
     // value adjustments chosen empirically for better feel
-    m_scene_zoom += glm::radians(delta / 2);
+    m_zoom += glm::radians(delta / 2);
 }
 // Inline and template members }}}
