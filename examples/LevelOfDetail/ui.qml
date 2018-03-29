@@ -1,5 +1,7 @@
 import QtQuick 2.3
 import QtQuick.Window 2.2
+import QtQuick.Dialogs 1.1
+import QtQuick.Controls 1.4
 
 import LevelOfDetail 1.0
 
@@ -10,9 +12,28 @@ Window {
     color: "black"
     visible: true
 
+    MessageDialog {  // error reporting
+        id: error_report
+        title: "Processing error!"
+        icon: StandardIcon.Warning
+    }
+
+    FileDialog {  // model selection
+        id: model_selector
+        title: "Select a model to display"
+        folder: shortcuts.home
+        onAccepted: {
+            opengl_view.select_model(model_selector.fileUrl);
+        }
+    }
+
     GLView {  // direct OpenGL rendering
         id: opengl_view
         anchors.fill: parent
+        onErrorEncountered: {
+            error_report.text = what;
+            error_report.visible = true;
+        }
     }
 
     MouseArea {  // rotate scene on drag
@@ -43,6 +64,18 @@ Window {
             text: "Placeholder for control elements"
             color: "black"
             anchors.centerIn: parent
+        }
+
+        Button {
+            text: "Select model to display"
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: 24
+
+            onClicked: {
+                model_selector.visible = true;
+            }
         }
     }
 }

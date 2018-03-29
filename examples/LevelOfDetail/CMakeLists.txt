@@ -10,6 +10,11 @@ if (NOT TARGET geGL)
 endif (NOT TARGET geGL)
 list(APPEND external_deps geGL geSG)
 
+if (NOT TARGET AssimpModelLoader)
+    find_package(AssimpModelLoader CONFIG QUIET HINTS "${CMAKE_CURRENT_LIST_DIR}/../../geAd/AssimpModelLoader/cmake")
+endif (NOT TARGET AssimpModelLoader)
+list(APPEND external_deps AssimpModelLoader)
+
 # Qt5
 find_package(Qt5 COMPONENTS Qml Quick QUIET)
 list(APPEND external_deps Qt5::Quick Qt5::Qml)

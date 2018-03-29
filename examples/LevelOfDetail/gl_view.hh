@@ -29,10 +29,14 @@ public:
     explicit GLView();
 
 signals:
+    /// @brief A processig error occurred.
+    void errorEncountered(const QString &what);
     /// @brief Notify the renderer of a rotation change.
     void update_rotation(float dx, float dy);
     /// @brief Notify the renderer of a zoom change.
     void update_zoom(float delta);
+    /// @brief A new scene is loaded.
+    void scene_loaded(std::shared_ptr<ge::sg::Scene> scene);
 
 public slots:
     /// @brief Synchronize renderer and QML state.
@@ -46,6 +50,9 @@ public slots:
     void rotation_changed(QPointF target) noexcept;
     /// @brief Current rotation was finished.
     void rotation_finished() noexcept;
+
+    /// @brief A model file was selected.
+    void select_model(const QUrl &url);
 
 private slots:
     /// @brief Attach self to new window.

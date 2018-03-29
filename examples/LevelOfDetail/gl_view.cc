@@ -12,6 +12,8 @@
 #include <QQuickWindow>
 #undef GL_GLEXT_VERSION  // use OpenGL through GPUEngine, respect its constants
 
+#include <AssimpModelLoader.h>
+
 #include "gl_view.hh"
 #include "visualization.hh"
 
@@ -120,6 +122,23 @@ void GLView::rotation_changed(QPointF target) noexcept
     auto dx = static_cast<float>(delta.x());
     auto dy = static_cast<float>(delta.y());
     emit update_rotation(glm::radians(dx), glm::radians(dy));
+}
+
+/** Attempts to load a new scene from selected file.
+ * @param[in] url The URL of the scene/model file to load.
+ */
+void GLView::select_model(const QUrl &url)
+{
+    auto scene = std::shared_ptr<ge::sg::Scene>(
+        AssimpModelLoader::loadScene(url.path().toLocal8Bit().constData()));
+    if (!scene) {
+        emit errorEncountered(QStringLiteral("Cannot load scene!"));
+    }
+    else {
+        emit scene_loaded(scene);
+    }
+
+    update();
 }
 
 /** Translate a rotation to a quaternion.
