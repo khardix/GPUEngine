@@ -75,27 +75,24 @@ void GLView::sync_renderer_state()
     if (!m_renderer) {
         m_renderer = std::make_unique<Renderer>();
 
+        auto connect_self = [this](auto signal, auto slot) {
+            connect(this, signal, m_renderer.get(), slot, Qt::DirectConnection);
+        };
+        auto connect_window = [this, &parent_window](auto signal, auto slot) {
+            connect(
+                parent_window,
+                signal,
+                m_renderer.get(),
+                slot,
+                Qt::DirectConnection);
+        };
+
         // update scene for painting
-        connect(
-            this,
-            &GLView::update_rotation,
-            m_renderer.get(),
-            &Renderer::update_rotation,
-            Qt::DirectConnection);
-        connect(
-            this,
-            &GLView::update_zoom,
-            m_renderer.get(),
-            &Renderer::update_zoom,
-            Qt::DirectConnection);
+        connect_self(&GLView::update_rotation, &Renderer::update_rotation);
+        connect_self(&GLView::update_zoom, &Renderer::update_zoom);
 
         // paint the scene behind QML widgets
-        connect(
-            parent_window,
-            &QQuickWindow::beforeRendering,
-            m_renderer.get(),
-            &Renderer::paint,
-            Qt::DirectConnection);
+        connect_window(&QQuickWindow::beforeRendering, &Renderer::paint);
     }
 
     // point the renderer to correct window and reset viewport
