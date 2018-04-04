@@ -21,8 +21,6 @@
  */
 class UniformVisualization {
 public:
-    friend class GLView;
-
     /// @brief Cached VAOs storage for rendered meshes
     using vao_map = std::unordered_map<
         const ge::sg::Mesh *,

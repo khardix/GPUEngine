@@ -91,6 +91,7 @@ void GLView::sync_renderer_state()
         // update scene for painting
         connect_self(&GLView::update_rotation, &Renderer::update_rotation);
         connect_self(&GLView::update_zoom, &Renderer::update_zoom);
+        connect_self(&GLView::scene_loaded, &Renderer::reset_scene);
 
         // paint the scene behind QML widgets
         connect_window(&QQuickWindow::beforeRendering, &Renderer::paint);
@@ -156,51 +157,6 @@ void GLView::Renderer::update_rotation(float dx, float dy) noexcept
         m_rotation * glm::inverse(m_rotation) * world_rotation * m_rotation);
 }
 
-/** Provides data for the shader program (currently hardcoded).
- * @returns Verter Array Object with loaded data.
- */
-std::shared_ptr<ge::gl::VertexArray> GLView::Renderer::load_model()
-{
-    // static variable -> data available for the whole duration of program run
-    // clang-format off
-    static const auto vertices = std::vector<GLfloat>{
-        -1.f, -1.f,  1.f,
-         1.f, -1.f,  1.f,
-        -1.f,  1.f,  1.f,
-         1.f,  1.f,  1.f,
-        -1.f, -1.f, -1.f,
-         1.f, -1.f, -1.f,
-        -1.f,  1.f, -1.f,
-         1.f,  1.f, -1.f,
-    };
-    static const auto elements = std::vector<GLubyte>{
-        0, 1, 3,
-        0, 3, 2,
-        1, 5, 7,
-        1, 7, 3,
-        5, 4, 6,
-        5, 6, 7,
-        4, 0, 2,
-        4, 2, 6,
-        0, 5, 1,
-        0, 4, 5,
-        2, 3, 7,
-        2, 7, 6,
-    };
-    // clang-format on
-
-    auto vertex_buffer = std::make_unique<ge::gl::Buffer>(
-        vertices.size() * sizeof(GLfloat), vertices.data());
-    auto element_buffer = std::make_unique<ge::gl::Buffer>(
-        elements.size() * sizeof(GLubyte), elements.data());
-
-    auto result = std::make_shared<ge::gl::VertexArray>();
-    result->addAttrib(std::move(vertex_buffer), 0, 3, GL_FLOAT);
-    result->addElementBuffer(std::move(element_buffer));
-
-    return result;
-}
-
 /** Render the item's contents. */
 void GLView::Renderer::paint()
 {
@@ -214,9 +170,6 @@ void GLView::Renderer::paint()
 
     if (!m_visualization) {
         m_visualization = std::make_unique<UniformVisualization>();
-    }
-    if (!m_scene) {
-        m_scene = load_model();
     }
 
     // calculate matrices
@@ -238,25 +191,12 @@ void GLView::Renderer::paint()
     m_context->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // draw the scene
-    {
-        m_visualization->m_program->setMatrix4fv(
-            "model", glm::value_ptr(glm::mat4(1.f)));
-        m_visualization->view_matrix(view_matrix);
-        m_visualization->projection_matrix(proj_matrix);
-        m_visualization->m_program->use();
-        m_scene->bind();
-
-        m_context->glDrawElements(
-            GL_TRIANGLES,
-            static_cast<GLsizei>(
-                m_scene->getElement()->getSize() / sizeof(GLubyte)),
-            GL_UNSIGNED_BYTE,
-            nullptr);
-
-        m_scene->unbind();
-    }
+    m_visualization->view_matrix(view_matrix);
+    m_visualization->projection_matrix(proj_matrix);
+    m_visualization->draw(*m_context, m_scene);
 
     // clean after OpenGL manipulations
     // WARNING: Zero-fills element buffer, unbind VAO before!
+    m_context->glBindVertexArray(0);
     m_window->resetOpenGLState();
 }

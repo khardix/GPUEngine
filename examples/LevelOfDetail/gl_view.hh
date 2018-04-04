@@ -92,12 +92,12 @@ public slots:
     void update_rotation(float dx, float dy) noexcept;
     /// @brief Update scene zoom.
     void update_zoom(float delta) noexcept;
+    /// @brief Select new scene for rendering.
+    void reset_scene(std::shared_ptr<ge::sg::Scene> scene) noexcept;
 
 protected:
     /// @brief Initialize OpenGL context.
     static std::unique_ptr<ge::gl::Context> init_opengl();
-    /// @brief Load model data into buffers.
-    static std::shared_ptr<ge::gl::VertexArray> load_model();
 
 private:
     // Qt data
@@ -108,9 +108,9 @@ private:
     std::unique_ptr<ge::gl::Context> m_context = nullptr;
 
     // Scene and its state
-    std::shared_ptr<ge::gl::VertexArray> m_scene = nullptr;
-    glm::fquat                           m_rotation = {};  // identity
-    float                                m_zoom = -10.f;
+    std::shared_ptr<ge::sg::Scene> m_scene = nullptr;
+    glm::fquat                     m_rotation = {};  // identity
+    float                          m_zoom = -1.f;
 
     // Visualisation
     std::unique_ptr<UniformVisualization> m_visualization = nullptr;
@@ -164,6 +164,13 @@ inline std::unique_ptr<ge::gl::Context> GLView::Renderer::init_opengl()
 inline void GLView::Renderer::update_zoom(float delta) noexcept
 {
     // value adjustments chosen empirically for better feel
-    m_zoom += glm::radians(delta / 2);
+    m_zoom += glm::radians(delta / 20);
+}
+
+/** @param[in] scene The new scene to render. */
+inline void GLView::Renderer::reset_scene(
+    std::shared_ptr<ge::sg::Scene> scene) noexcept
+{
+    m_scene = scene;
 }
 // Inline and template members }}}
