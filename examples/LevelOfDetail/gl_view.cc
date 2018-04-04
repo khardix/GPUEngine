@@ -15,7 +15,6 @@
 #include <AssimpModelLoader.h>
 
 #include "gl_view.hh"
-#include "visualization.hh"
 
 /** Create internal signal-slot connections. */
 GLView::GLView()
@@ -214,14 +213,13 @@ void GLView::Renderer::paint()
     }
 
     if (!m_visualization) {
-        m_visualization = make_uniform_program();
+        m_visualization = std::make_unique<UniformVisualization>();
     }
     if (!m_scene) {
         m_scene = load_model();
     }
 
     // calculate matrices
-    const auto model_matrix = glm::mat4(1.f);
     const auto view_matrix = [this] {
         const auto position
             = glm::translate(glm::mat4(1.f), glm::vec3(0.f, 0.f, m_zoom));
@@ -239,14 +237,13 @@ void GLView::Renderer::paint()
     m_context->glClearColor(.0f, 0.f, .0f, 0.f);
     m_context->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // calculate current model position
-    m_visualization->use();
-    m_visualization->setMatrix4fv("model", glm::value_ptr(model_matrix));
-    m_visualization->setMatrix4fv("view", glm::value_ptr(view_matrix));
-    m_visualization->setMatrix4fv("projection", glm::value_ptr(proj_matrix));
-
-    // bind the vertices and run the program
+    // draw the scene
     {
+        m_visualization->m_program->setMatrix4fv(
+            "model", glm::value_ptr(glm::mat4(1.f)));
+        m_visualization->view_matrix(view_matrix);
+        m_visualization->projection_matrix(proj_matrix);
+        m_visualization->m_program->use();
         m_scene->bind();
 
         m_context->glDrawElements(

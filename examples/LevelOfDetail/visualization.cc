@@ -6,12 +6,14 @@
 #include <stdexcept>
 #include <string>
 
+#include <geGL/Buffer.h>
+
 #include "scene_util.hh"
 #include "visualization.hh"
 
 
 /// @brief Hardcoded source for vertex shader of the uniform program
-static const auto UNIFORM_VERTEX_CODE = std::string{R"vertex(
+const std::string UniformVisualization::VERTEX_CODE = R"vertex(
 #version 430 core
 
 layout (location = 0) in vec3 model_vertex;
@@ -19,10 +21,10 @@ layout (location = 0) in vec3 model_vertex;
 void main() {
     gl_Position = vec4(model_vertex, 1.0);
 }
-)vertex"};
+)vertex";
 
 /// @brief Hardcoded source for geometry shader of the uniform program
-static const auto UNIFORM_GEOMETRY_CODE = std::string{R"geometry(
+const std::string UniformVisualization::GEOMETRY_CODE = R"geometry(
 #version 430 core
 
 layout (triangles) in;
@@ -58,10 +60,10 @@ void main() {
     }
     EndPrimitive();
 }
-)geometry"};
+)geometry";
 
 /// @brief Hardcoded source for fragment shader of the uniform program
-static const auto UNIFORM_FRAGMENT_CODE = std::string{R"fragment(
+const std::string UniformVisualization::FRAGMENT_CODE = R"fragment(
 #version 430 core
 
 uniform vec3 ambient = vec3(0.1, 0.1, 0.1);
@@ -88,27 +90,126 @@ void main() {
 
     color = diffuse + specular + ambient;
 }
-)fragment"};
+)fragment";
 
 
 /** Compiles hard-coded sources into usable OpenGL program.
- * @returns Compiled and linked program.
  * @throws std::runtime_error Compilation/linking failed.
  */
-std::unique_ptr<ge::gl::Program> make_uniform_program()
+UniformVisualization::UniformVisualization()
 {
     using ge::gl::Program;
     using ge::gl::Shader;
 
-    auto result = std::make_unique<Program>(
-        std::make_shared<Shader>(GL_VERTEX_SHADER, UNIFORM_VERTEX_CODE),
-        std::make_shared<Shader>(GL_GEOMETRY_SHADER, UNIFORM_GEOMETRY_CODE),
-        std::make_shared<Shader>(GL_FRAGMENT_SHADER, UNIFORM_FRAGMENT_CODE));
+    m_program = std::make_unique<Program>(
+        std::make_shared<Shader>(GL_VERTEX_SHADER, VERTEX_CODE),
+        std::make_shared<Shader>(GL_GEOMETRY_SHADER, GEOMETRY_CODE),
+        std::make_shared<Shader>(GL_FRAGMENT_SHADER, FRAGMENT_CODE));
 
-    if (!static_cast<bool>(result->getLinkStatus())) {
+    if (!static_cast<bool>(m_program->getLinkStatus())) {
         throw std::runtime_error(
             "Uniform shading program compilation/linking failed");
     }
+}
 
-    return result;
+/** @note Not every attribute of a mesh is utilized by the underlying program.
+ * See return value description for more.
+ * @param[in] semantic Input semantic.
+ * @returns Attribute binding (≥ 0) for an attribute with the input semantic.
+ * If the program does not utilize an attribute with such semantic, returns -1,
+ */
+GLint UniformVisualization::semantic_binding(
+    ge::sg::AttributeDescriptor::Semantic semantic) noexcept
+{
+    using Semantic = ge::sg::AttributeDescriptor::Semantic;
+
+    switch (semantic) {
+        default:
+            return -1;
+
+        case Semantic::position:
+            return 0;
+    }
+}
+
+/** Create VertexArray object from a single Mesh. All used attributes are
+ * converted as they are.
+ * @param[in] mesh The source mesh.
+ * @returns Unique pointer to new filled VertexArray.
+ */
+std::unique_ptr<ge::gl::VertexArray> UniformVisualization::convert(
+    const ge::sg::Mesh &mesh)
+{
+    using Semantic = ge::sg::AttributeDescriptor::Semantic;
+
+    auto result = std::make_unique<ge::gl::VertexArray>();
+
+    for (const auto &descriptor : mesh.attributes) {
+        auto buffer = std::make_unique<ge::gl::Buffer>(
+            static_cast<const GLsizeiptr>(descriptor->size),
+            static_cast<const GLvoid *>(descriptor->data.get()));
+
+        if (descriptor->semantic == Semantic::indices) {
+            result->addElementBuffer(std::move(buffer));
+            continue;
+        }
+        auto binding = semantic_binding(descriptor->semantic);
+        if (binding < 0) {
+            continue;
+        }
+
+        result->addAttrib(
+            std::move(buffer),
+            static_cast<const GLuint>(binding),
+            static_cast<const GLint>(descriptor->numComponents),
+            util::glsg::translate(descriptor->type),
+            static_cast<const GLsizei>(descriptor->stride),
+            static_cast<const GLintptr>(descriptor->offset));
+    }
+
+    return std::move(result);
+}
+
+/** Iterates over each model and mesh in the scene, drawing them in order. Model
+ * transformations are respected.
+ * @post The internal program is in use.
+ * @post Last VAO of the scene is bound.
+ * @param[in] context OpenGL context to use for drawing. Should be active.
+ * @param[in] scene The scene to draw.
+ * @throws std::runtime_error Mesh has no attribute with Semantic::indices.
+ */
+void UniformVisualization::draw(
+    ge::gl::Context &context, std::shared_ptr<ge::sg::Scene> scene)
+{
+    using MeshContainer = util::SceneWalker::iterator::MeshContainer &;
+    using Transformation = glm::mat4;
+    using Semantic = ge::sg::AttributeDescriptor::Semantic;
+
+    m_program->use();
+
+    for (const auto &model : util::SceneWalker(scene)) {
+        const auto &meshes = std::get<MeshContainer>(model);
+        const auto &transformation = std::get<Transformation>(model);
+
+        m_program->setMatrix4fv("model", glm::value_ptr(transformation));
+
+        for (const auto &mesh : meshes) {
+            const auto &indices = mesh->getAttribute(Semantic::indices);
+            if (!indices) {
+                throw std::runtime_error("Encountered mesh with no indices");
+            }
+
+            auto &vao = m_vao_cache[mesh.get()];
+            if (!vao) {
+                vao = convert(*mesh);
+            }
+
+            const auto &mode = util::glsg::translate(mesh->primitive);
+            const auto &count = static_cast<GLsizei>(mesh->count);
+            const auto &type = util::glsg::translate(indices->type);
+
+            vao->bind();
+            context.glDrawElements(mode, count, type, nullptr);
+        }
+    }
 }

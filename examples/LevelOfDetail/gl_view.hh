@@ -17,6 +17,8 @@
 #include <geGL/geGL.h>
 #include <geSG/Scene.h>
 
+#include "visualization.hh"
+
 
 /** @brief QML component that displays the rendering.
  * @warning Do NOT combine this class with its renderer!
@@ -111,7 +113,7 @@ private:
     float                                m_zoom = -10.f;
 
     // Visualisation
-    std::unique_ptr<ge::gl::Program> m_visualization = nullptr;
+    std::unique_ptr<UniformVisualization> m_visualization = nullptr;
 };
 
 // Inline and template members {{{
