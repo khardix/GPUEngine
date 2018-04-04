@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "scene.hh"
+#include "scene_util.hh"
 #include "visualization.hh"
 
 
@@ -111,103 +111,4 @@ std::unique_ptr<ge::gl::Program> make_uniform_program()
     }
 
     return result;
-}
-
-/** Initialize internal stacks to iterate over a sub-graph.
- * @param[in] root The root node of the DAG.
- * @param[in] initial_transform Optional initial transformation.
- */
-util::SceneWalker::iterator::iterator(
-    std::shared_ptr<Node> root, glm::mat4 initial_transform)
-    : m_root_container({root})
-{
-    auto root_iter
-        = Level{std::begin(m_root_container), std::end(m_root_container)};
-
-    m_history.push(std::move(root_iter));
-    m_transform.push(initial_transform);
-}
-
-/// @warning Undefined if the iterator is empty.
-void util::SceneWalker::iterator::push_level()
-{
-    // history
-    auto &current = *(m_history.top().current);
-    m_history.push(
-        Level{std::begin(current->children), std::end(current->children)});
-
-    // transformation
-    auto &child = *(m_history.top().current);
-    m_transform.push(m_transform.top() * child->data->getMatrix());
-}
-
-/// @warning Undefined if the iterator is empty.
-void util::SceneWalker::iterator::next_sibling()
-{
-    auto &child = ++(m_history.top().current);
-    if (!level_finished()) {
-        m_transform.pop();
-        m_transform.push(m_transform.top() * (*child)->data->getMatrix());
-    }
-}
-
-/// @warning Undefined if the iterator is empty.
-void util::SceneWalker::iterator::pop_level()
-{
-    m_transform.pop();
-    m_history.pop();
-}
-
-/** Move to next in-order node in the scene.
- * @returns Reference to modified self.
- */
-util::SceneWalker::iterator &util::SceneWalker::iterator::operator++()
-{
-    if (empty()) {
-        return *this;
-    }
-
-    if (!level_finished()) {
-        if (have_children()) {  // continue to first child
-            push_level();
-        }
-        else {  // continue to next sibling
-            next_sibling();
-        }
-    }
-
-    // go up until empty or not at the end of level
-    while (!empty() && level_finished()) {
-        pop_level();
-        if (empty()) {
-            break;
-        }
-        next_sibling();
-    }
-
-    return *this;
-}
-
-/** Compare two iterators.
- * Empty (past-end) iterators always compare equal.
- * Otherwise, equal iterators should point to the same node and have the same
- * transformation.
- * @param[in] other The other iterator to compare.
- * @returns Comparison result.
- */
-bool util::SceneWalker::iterator::operator==(const iterator &other) noexcept
-{
-    if (empty() && other.empty()) {
-        return true;
-    }
-    if (empty() != other.empty()) {
-        return false;
-    }
-
-    auto same_ptr
-        = (m_history.top().current->get()
-           == other.m_history.top().current->get());
-    auto same_transformation = (m_transform.top() == other.m_transform.top());
-
-    return same_ptr && same_transformation;
 }
