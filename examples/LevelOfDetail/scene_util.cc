@@ -40,6 +40,44 @@ GLenum util::glsg::translate(
     }
 }
 
+/** @overload
+ * @param[in] primitive_id Generic primitive type identification.
+ * @returns Equivalent OpenGL primitive identification.
+ */
+GLenum util::glsg::translate(ge::sg::Mesh::PrimitiveType primitive_id) noexcept
+{
+    using PT = ge::sg::Mesh::PrimitiveType;
+
+    switch (primitive_id) {
+        default:
+        case PT::UNKNOWN:
+            return GL_TRIANGLES;
+
+        case PT::POINTS:
+            return GL_POINTS;
+        case PT::LINES:
+            return GL_LINES;
+        case PT::LINE_LOOP:
+            return GL_LINE_LOOP;
+        case PT::LINE_STRIP:
+            return GL_LINE_STRIP;
+        case PT::TRIANGLES:
+            return GL_TRIANGLES;
+        case PT::TRIANGLE_STRIP:
+            return GL_TRIANGLE_STRIP;
+        case PT::TRIANGLE_FAN:
+            return GL_TRIANGLE_FAN;
+        case PT::QUADS:
+            return GL_QUADS;
+        case PT::QUAD_STRIP:
+            return GL_QUAD_STRIP;
+        case PT::POLYGON:
+            return GL_POLYGON;
+        case PT::PATCH:
+            return GL_PATCHES;
+    }
+}
+
 /** Create VertexArray object from a single Mesh. All attributes are converted
  * as they are.
  * @param[in] mesh The source mesh.

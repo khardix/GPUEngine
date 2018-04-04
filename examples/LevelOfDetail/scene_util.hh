@@ -29,6 +29,7 @@ namespace util {
 namespace glsg {
 /// @brief Translate generic enumeration value to OpenGL equivalent.
 GLenum translate(ge::sg::AttributeDescriptor::DataType type_id) noexcept;
+GLenum translate(ge::sg::Mesh::PrimitiveType primitive_id) noexcept;
 
 /// @brief Create OpenGL "object" from equivalent ge::sg structure.
 std::unique_ptr<ge::gl::VertexArray> convert(const ge::sg::Mesh &mesh);
