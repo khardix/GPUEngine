@@ -17,6 +17,8 @@
 
 #include <glm/vec3.hpp>
 
+#include "util/hash_combinator.h"
+
 namespace lod {
 namespace graph {
 struct Node;           ///< @brief Single vertex with adjacency information.
@@ -46,10 +48,7 @@ struct DirectedEdge {
 class UndirectedEdge : public std::pair<Node *, Node *> {
 public:
     friend struct std::hash<UndirectedEdge>;
-    using std::pair<Node *, Node *>::pair;
-
-    bool operator==(const UndirectedEdge &other) const noexcept;
-    bool operator!=(const UndirectedEdge &other) const noexcept;
+    explicit UndirectedEdge(Node *lhs, Node *rhs) noexcept;
 };
 }  // namespace graph
 }  // namespace lod
@@ -68,24 +67,18 @@ struct hash<lod::graph::UndirectedEdge> {
      */
     return_type operator()(const argument_type &edge) const noexcept
     {
-        const auto &lhs = std::hash<argument_type::first_type>{}(edge.first);
-        const auto &rhs = std::hash<argument_type::second_type>{}(edge.second);
-        return static_cast<return_type>(lhs + rhs);
+        return lod::util::hash_combinator(0, edge.first, edge.second);
     }
 };
 }  // namespace std
 
-inline bool lod::graph::UndirectedEdge::operator==(
-    const UndirectedEdge &other) const noexcept
+/** @brief Force consistent ordering of the pointers.
+ * @param[in] lhs One terminal node.
+ * @param[in] rhs Other terminal node.
+ */
+inline lod::graph::UndirectedEdge::UndirectedEdge(Node *lhs, Node *rhs) noexcept
+    : pair(std::min(lhs, rhs), std::max(lhs, rhs))
 {
-    return (this->first == other.first && this->second == other.second)
-        || (this->first == other.second && this->second == other.first);
-}
-
-inline bool lod::graph::UndirectedEdge::operator!=(
-    const UndirectedEdge &other) const noexcept
-{
-    return !(*this == other);
 }
 /* }}} Inline and template members. */
 
