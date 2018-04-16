@@ -31,6 +31,11 @@ public:
     Mesh(const Mesh &) = delete;
     Mesh &operator=(const Mesh &) = delete;
 
+    /// @brief Access to stored nodes.
+    const NodeSet &nodes() const noexcept;
+    /// @brief Access to stored edges.
+    const EdgeSet &edges() const noexcept;
+
 protected:
     /// @brief Insert single triangle into a graph.
     void insert(const ge::sg::Triangle &, EdgeCache &cache);
@@ -51,6 +56,15 @@ private:
 inline lod::graph::Mesh::Mesh(NodeSet nodes, EdgeSet edges)
     : m_nodes(std::move(nodes)), m_edges(std::move(edges))
 {
+}
+
+inline const lod::graph::Mesh::NodeSet &lod::graph::Mesh::nodes() const noexcept
+{
+    return m_nodes;
+}
+inline const lod::graph::Mesh::EdgeSet &lod::graph::Mesh::edges() const noexcept
+{
+    return m_edges;
 }
 
 #endif /* end of include guard: MESH_H_VR9OG0AK */
