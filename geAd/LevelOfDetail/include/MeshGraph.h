@@ -76,6 +76,36 @@ private:
 
 
 /* Inline and template members. {{{ */
+namespace std {
+template <>
+struct hash<lod::graph::Node> {
+    using argument_type = lod::graph::Node;
+    using return_type = std::size_t;
+
+    /// @brief Node is hashed by its position.
+    return_type operator()(const argument_type &node) const noexcept
+    {
+        return lod::util::hash_combinator(
+            0, node.position.x, node.position.y, node.position.z);
+    }
+};
+
+template <>
+struct hash<lod::graph::UndirectedEdge> {
+    using argument_type = lod::graph::UndirectedEdge;
+    using return_type = std::size_t;
+
+    /** @brief Calculate edge hash.
+     * The hash should be comutative: `hash(AB) == hash(BA)`.
+     */
+    return_type operator()(const argument_type &edge) const noexcept
+    {
+        const auto nodes = edge.nodes();
+        return lod::util::hash_combinator(0, nodes.first, nodes.second);
+    }
+};
+}  // namespace std
+
 /// @brief Nodes are considered equal if they are at the same position.
 inline bool lod::graph::Node::operator==(const Node &other) const noexcept
 {
@@ -116,35 +146,6 @@ inline bool lod::graph::UndirectedEdge::operator!=(
     return !(*this == other);
 }
 
-namespace std {
-template <>
-struct hash<lod::graph::Node> {
-    using argument_type = lod::graph::Node;
-    using return_type = std::size_t;
-
-    /// @brief Node is hashed by its position.
-    return_type operator()(const argument_type &node) const noexcept
-    {
-        return lod::util::hash_combinator(
-            0, node.position.x, node.position.y, node.position.z);
-    }
-};
-
-template <>
-struct hash<lod::graph::UndirectedEdge> {
-    using argument_type = lod::graph::UndirectedEdge;
-    using return_type = std::size_t;
-
-    /** @brief Calculate edge hash.
-     * The hash should be comutative: `hash(AB) == hash(BA)`.
-     */
-    return_type operator()(const argument_type &edge) const noexcept
-    {
-        const auto nodes = edge.nodes();
-        return lod::util::hash_combinator(0, nodes.first, nodes.second);
-    }
-};
-}  // namespace std
 /* }}} Inline and template members. */
 
 #endif /* end of include guard: MESHGRAPH_H_PB5REYZQ */
