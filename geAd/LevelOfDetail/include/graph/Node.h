@@ -20,7 +20,7 @@ struct Node {
     friend struct std::hash<Node>;
 
     glm::vec3 position = {0.f, 0.f, 0.f};  ///< Vertex position in model space.
-    DirectedEdge *edge = nullptr;          ///< Arbitrary first outgoing edge.
+    mutable DirectedEdge *edge = nullptr;  ///< Arbitrary first outgoing edge.
 
     bool operator==(const Node &other) const noexcept;
     bool operator!=(const Node &other) const noexcept;

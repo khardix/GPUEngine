@@ -9,6 +9,7 @@
 #include <unordered_set>
 
 #include <geSG/Mesh.h>
+#include <geSG/MeshTriangleIterators.h>
 
 #include "../util/hash_combinator.h"
 #include "Edge.h"
@@ -20,9 +21,19 @@ class Mesh {
 public:
     using NodeSet = std::unordered_set<Node>;
     using EdgeSet = std::unordered_set<std::unique_ptr<DirectedEdge>>;
+    using EdgeCache = std::unordered_set<UndirectedEdge>;
 
     /// @brief Create graph from prepared sets.
     explicit Mesh(NodeSet nodes, EdgeSet edges);
+    /// @brief Create graph from existing mesh.
+    explicit Mesh(/*const*/ ge::sg::Mesh &original);
+
+    Mesh(const Mesh &) = delete;
+    Mesh &operator=(const Mesh &) = delete;
+
+protected:
+    /// @brief Insert single triangle into a graph.
+    void insert(const ge::sg::Triangle &, EdgeCache &cache);
 
 private:
     std::unordered_set<Node>                          m_nodes = {};

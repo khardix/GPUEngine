@@ -24,16 +24,15 @@ struct Node;
 struct DirectedEdge {
     /// @brief Mesh strucutre error indicators.
     enum class invalid {
-        boundary,    ///< Edge is on a boundary.
         nonmanifold  ///< Too many triangles share an edge.
     };
 
     /// @brief Possibly invalid edge reference.
-    using MaybeEdge = nonstd::variant<invalid, DirectedEdge *>;
+    using MaybeEdge = nonstd::variant<DirectedEdge *, invalid>;
 
-    Node *        target = nullptr;           ///< Target vertex.
-    DirectedEdge *previous = nullptr;         ///< Previous edge in polygon.
-    MaybeEdge neighbour = invalid::boundary;  ///< Opposite direction half-edge.
+    const Node *  target = nullptr;     ///< Target vertex.
+    DirectedEdge *previous = nullptr;   ///< Previous edge in polygon.
+    MaybeEdge     neighbour = nullptr;  ///< Opposite direction half-edge.
 };
 
 /// @brief Hashable canonical representation of an edge.
@@ -46,6 +45,9 @@ public:
 
     bool operator==(const UndirectedEdge &other) const noexcept;
     bool operator!=(const UndirectedEdge &other) const noexcept;
+
+    /// @brief Access referred half-edge
+    DirectedEdge &referred() const;
 
 protected:
     /// @brief Extract boundary nodes in canonical order.
@@ -104,6 +106,14 @@ inline bool lod::graph::UndirectedEdge::operator!=(
     const UndirectedEdge &other) const noexcept
 {
     return !(*this == other);
+}
+
+/**
+ * @returns Referred half-edge reference.
+ */
+inline lod::graph::DirectedEdge &lod::graph::UndirectedEdge::referred() const
+{
+    return m_edge.get();
 }
 
 #endif /* end of include guard: EDGE_H_HRCWE1XD */
