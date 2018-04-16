@@ -65,11 +65,13 @@ SCENARIO(
     using namespace lod::graph;
 
     auto v_a = Node{}, v_b = Node{}, v_c = Node{};
+    auto prev_a = DirectedEdge{&v_a}, e_a = DirectedEdge{&v_b, &prev_a};  // A→B
+    auto prev_b = DirectedEdge{&v_b}, e_b = DirectedEdge{&v_a, &prev_b};  // B→A
+    auto prev_c = DirectedEdge{&v_c}, e_c = DirectedEdge{&v_a, &prev_c};  // C→A
 
     GIVEN("two identical edges")
     {
-        auto lhs = UndirectedEdge(&v_a, &v_b);
-        auto rhs = lhs;
+        auto lhs = UndirectedEdge(e_a), rhs = lhs;
 
         WHEN("compared")
         {
@@ -94,8 +96,8 @@ SCENARIO(
 
     GIVEN("two 'opposite' edges")
     {
-        auto lhs = UndirectedEdge(&v_a, &v_b);
-        auto rhs = UndirectedEdge(&v_b, &v_a);
+        auto rhs = UndirectedEdge(e_a);
+        auto lhs = UndirectedEdge(e_b);
 
         WHEN("compared")
         {
@@ -120,8 +122,8 @@ SCENARIO(
 
     GIVEN("two different edges")
     {
-        auto lhs = UndirectedEdge(&v_a, &v_b);
-        auto rhs = UndirectedEdge(&v_a, &v_c);
+        auto lhs = UndirectedEdge(e_b);
+        auto rhs = UndirectedEdge(e_c);
 
         WHEN("compared")
         {

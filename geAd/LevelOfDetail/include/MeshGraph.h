@@ -6,6 +6,7 @@
  * @brief Graph representation of triangle mesh.
  */
 
+#include <functional>
 #include <utility>
 #include <vector>
 
@@ -53,10 +54,22 @@ struct DirectedEdge {
 };
 
 /// @brief Hashable canonical representation of an edge.
-class UndirectedEdge : public std::pair<Node *, Node *> {
+class UndirectedEdge {
 public:
     friend struct std::hash<UndirectedEdge>;
-    explicit UndirectedEdge(Node *lhs, Node *rhs) noexcept;
+
+    /// @brief Reference existing directed edge.
+    explicit UndirectedEdge(DirectedEdge &edge) noexcept;
+
+    bool operator==(const UndirectedEdge &other) const noexcept;
+    bool operator!=(const UndirectedEdge &other) const noexcept;
+
+protected:
+    /// @brief Extract boundary nodes in canonical order.
+    std::pair<const Node *, const Node *> nodes() const;
+
+private:
+    std::reference_wrapper<DirectedEdge> m_edge;  ///< The wrapped half-edge.
 };
 }  // namespace graph
 }  // namespace lod
@@ -73,13 +86,34 @@ inline bool lod::graph::Node::operator!=(const Node &other) const noexcept
     return !(*this == other);
 }
 
-/** @brief Force consistent ordering of the pointers.
- * @param[in] lhs One terminal node.
- * @param[in] rhs Other terminal node.
+/** Wraps a reference to existing edge,
+ * and provides comparison and hash semantic for the corresponding full edge.
+ * @param[in] edge Reference to existing directed edge.
  */
-inline lod::graph::UndirectedEdge::UndirectedEdge(Node *lhs, Node *rhs) noexcept
-    : pair(std::min(lhs, rhs), std::max(lhs, rhs))
+inline lod::graph::UndirectedEdge::UndirectedEdge(DirectedEdge &edge) noexcept
+    : m_edge(std::ref(edge))
 {
+}
+
+/** Edge's nodes in memory order. */
+inline std::pair<const lod::graph::Node *, const lod::graph::Node *>
+lod::graph::UndirectedEdge::nodes() const
+{
+    const auto *n1 = m_edge.get().target;
+    const auto *n2 = m_edge.get().previous->target;
+    return std::make_pair(std::min(n1, n2), std::max(n1, n2));
+}
+
+/** All edges between the same two nodes are equal. */
+inline bool lod::graph::UndirectedEdge::operator==(
+    const UndirectedEdge &other) const noexcept
+{
+    return nodes() == other.nodes();
+}
+inline bool lod::graph::UndirectedEdge::operator!=(
+    const UndirectedEdge &other) const noexcept
+{
+    return !(*this == other);
 }
 
 namespace std {
@@ -106,7 +140,8 @@ struct hash<lod::graph::UndirectedEdge> {
      */
     return_type operator()(const argument_type &edge) const noexcept
     {
-        return lod::util::hash_combinator(0, edge.first, edge.second);
+        const auto nodes = edge.nodes();
+        return lod::util::hash_combinator(0, nodes.first, nodes.second);
     }
 };
 }  // namespace std
