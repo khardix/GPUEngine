@@ -3,4 +3,4 @@
  * @brief Graph representation of triangle mesh (implementation).
  */
 
-#include <MeshGraph.h>
+#include <graph/Mesh.h>
