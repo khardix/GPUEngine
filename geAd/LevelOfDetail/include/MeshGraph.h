@@ -15,21 +15,28 @@
 // ^ silence variant warning, should have no effect on c++11 and later
 #include <nonstd/variant.hpp>
 
-#include <glm/vec3.hpp>
+#include <glm/glm.hpp>
 
 #include "util/hash_combinator.h"
 
 namespace lod {
 namespace graph {
-struct Node;           ///< @brief Single vertex with adjacency information.
-struct DirectedEdge;   ///< @brief Half-edge with adjacency information.
-class UndirectedEdge;  ///< @brief Hashable canonical representation of an edge.
+struct Node;
+struct DirectedEdge;
+class UndirectedEdge;
 
+/// @brief Single vertex with adjacency information.
 struct Node {
+    friend struct std::hash<Node>;
+
     glm::vec3 position = {0.f, 0.f, 0.f};  ///< Vertex position in model space.
     DirectedEdge *edge = nullptr;          ///< Arbitrary first outgoing edge.
+
+    bool operator==(const Node &other) const noexcept;
+    bool operator!=(const Node &other) const noexcept;
 };
 
+/// @brief Half-edge with adjacency information.
 struct DirectedEdge {
     /// @brief Mesh strucutre error indicators.
     enum class invalid {
@@ -45,6 +52,7 @@ struct DirectedEdge {
     MaybeEdge     neigbour = nullptr;  ///< Opposite direction half-edge.
 };
 
+/// @brief Hashable canonical representation of an edge.
 class UndirectedEdge : public std::pair<Node *, Node *> {
 public:
     friend struct std::hash<UndirectedEdge>;
@@ -55,8 +63,39 @@ public:
 
 
 /* Inline and template members. {{{ */
+/// @brief Nodes are considered equal if they are at the same position.
+inline bool lod::graph::Node::operator==(const Node &other) const noexcept
+{
+    return glm::all(glm::equal(position, other.position));
+}
+inline bool lod::graph::Node::operator!=(const Node &other) const noexcept
+{
+    return !(*this == other);
+}
+
+/** @brief Force consistent ordering of the pointers.
+ * @param[in] lhs One terminal node.
+ * @param[in] rhs Other terminal node.
+ */
+inline lod::graph::UndirectedEdge::UndirectedEdge(Node *lhs, Node *rhs) noexcept
+    : pair(std::min(lhs, rhs), std::max(lhs, rhs))
+{
+}
+
 namespace std {
-/// @brief Injected hash functor for undirected edges.
+template <>
+struct hash<lod::graph::Node> {
+    using argument_type = lod::graph::Node;
+    using return_type = std::size_t;
+
+    /// @brief Node is hashed by its position.
+    return_type operator()(const argument_type &node) const noexcept
+    {
+        return lod::util::hash_combinator(
+            0, node.position.x, node.position.y, node.position.z);
+    }
+};
+
 template <>
 struct hash<lod::graph::UndirectedEdge> {
     using argument_type = lod::graph::UndirectedEdge;
@@ -71,15 +110,6 @@ struct hash<lod::graph::UndirectedEdge> {
     }
 };
 }  // namespace std
-
-/** @brief Force consistent ordering of the pointers.
- * @param[in] lhs One terminal node.
- * @param[in] rhs Other terminal node.
- */
-inline lod::graph::UndirectedEdge::UndirectedEdge(Node *lhs, Node *rhs) noexcept
-    : pair(std::min(lhs, rhs), std::max(lhs, rhs))
-{
-}
 /* }}} Inline and template members. */
 
 #endif /* end of include guard: MESHGRAPH_H_PB5REYZQ */
