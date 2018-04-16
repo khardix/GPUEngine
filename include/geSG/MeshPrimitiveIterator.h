@@ -121,7 +121,10 @@ namespace ge
 
          virtual bool operator==(const self_type& rhs) const
          {
-            return this->_triangle.v0 == rhs._triangle.v0;
+            /* return this->_triangle.v0 == rhs._triangle.v0; */
+             return (_triangle.v0 == rhs._triangle.v0)
+                 && (_triangle.v1 == rhs._triangle.v1)
+                 && (_triangle.v2 == rhs._triangle.v2);
          }
 
          virtual bool operator!=(const self_type& rhs) const
