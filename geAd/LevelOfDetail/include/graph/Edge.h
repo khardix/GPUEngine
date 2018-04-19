@@ -5,6 +5,7 @@
  * @brief Mesg graph component: Edge
  */
 
+#include <array>
 #include <functional>
 #include <utility>
 
@@ -29,6 +30,11 @@ struct DirectedEdge {
 
     /// @brief Possibly invalid edge reference.
     using MaybeEdge = nonstd::variant<DirectedEdge *, invalid>;
+
+    /// @brief Calculate next edge in a triangle.
+    DirectedEdge *next() const noexcept;
+    /// @brief Extract all edges from own triangle.
+    std::array<const DirectedEdge *, 3> triangle_edges() const;
 
     const Node *  target = nullptr;     ///< Target vertex.
     DirectedEdge *previous = nullptr;   ///< Previous edge in polygon.
@@ -77,6 +83,31 @@ struct hash<lod::graph::UndirectedEdge> {
     }
 };
 }  // namespace std
+
+/** Find an edge where previous == this.
+ * @return Pointer to the next edge, or nullptr if the cycle is broken.
+ */
+inline lod::graph::DirectedEdge *lod::graph::DirectedEdge::next() const noexcept
+{
+    for (auto cur = previous;; cur = cur->previous) {
+        if (cur == nullptr || cur->previous == this) {
+            return cur;
+        }
+    }
+}
+
+/** Extract edges in correct order.
+ * @return All edges in own triangle in correct order.
+ * @throws std::runtime_error On unconnected triangle.
+ */
+inline std::array<const lod::graph::DirectedEdge *, 3>
+lod::graph::DirectedEdge::triangle_edges() const
+{
+    if (previous == nullptr || previous->previous == nullptr) {
+        throw std::runtime_error("Unconnected edges!");
+    }
+    return {this, previous->previous, previous};
+}
 
 /** Wraps a reference to existing edge,
  * and provides comparison and hash semantic for the corresponding full edge.

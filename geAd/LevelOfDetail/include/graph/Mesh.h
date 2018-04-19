@@ -31,6 +31,9 @@ public:
     Mesh(const Mesh &) = delete;
     Mesh &operator=(const Mesh &) = delete;
 
+    /// @brief Create an equivalent ge::sg::Mesh.
+    explicit operator ge::sg::Mesh() const;
+
     /// @brief Access to stored nodes.
     const NodeSet &nodes() const noexcept;
     /// @brief Access to stored edges.

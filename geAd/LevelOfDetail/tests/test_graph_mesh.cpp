@@ -2,20 +2,27 @@
 #include <array>
 #include <iostream>
 #include <memory>
+#include <vector>
 
 #include "catch.hpp"
 #include <graph/Mesh.h>
 
-SCENARIO(
-    "Conversion from ge::sg::Mesh"
-    "[graph]")
+// conversions
+template <typename T>
+std::vector<T> read_attribute(const ge::sg::AttributeDescriptor &attr)
 {
-    GIVEN("Simple manifold mesh")
-    {
-        using PositionArray = std::array<float, 4 * 3>;
-        using IndexArray = std::array<unsigned, 4 * 3>;
+    const auto data = std::static_pointer_cast<T>(attr.data);
+    const auto size = attr.size / sizeof(T);
+    return std::vector<T>(data.get(), data.get() + size);  // NOLINT
+}
 
-        // clang-format off
+// factory functions
+ge::sg::Mesh make_scene_mesh()
+{
+    using PositionArray = std::array<float, 4 * 3>;
+    using IndexArray = std::array<unsigned, 4 * 3>;
+
+    // clang-format off
         auto position_data = std::make_shared<PositionArray>(PositionArray{ 
             0.f, 0.f, 0.f,
             1.f, 0.f, 0.f,
@@ -28,29 +35,40 @@ SCENARIO(
             0, 3, 2,
             1, 2, 3,
         });
-        // clang-format on
+    // clang-format on
 
-        auto position = std::make_shared<ge::sg::AttributeDescriptor>();
-        position->size = static_cast<int>(
-            position_data->size() * sizeof(position_data->at(0)));
-        position->numComponents = 3;
-        position->type = ge::sg::AttributeDescriptor::DataType::FLOAT;
-        position->semantic = ge::sg::AttributeDescriptor::Semantic::position;
-        position->data = position_data;
+    auto position = std::make_shared<ge::sg::AttributeDescriptor>();
+    position->size = static_cast<int>(
+        position_data->size() * sizeof(position_data->at(0)));
+    position->numComponents = 3;
+    position->type = ge::sg::AttributeDescriptor::DataType::FLOAT;
+    position->semantic = ge::sg::AttributeDescriptor::Semantic::position;
+    position->data = position_data;
 
-        auto indices = std::make_shared<ge::sg::AttributeDescriptor>();
-        indices->size = static_cast<int>(
-            indices_data->size() * sizeof(indices_data->at(0)));
-        indices->numComponents = 3;
-        indices->type = ge::sg::AttributeDescriptor::DataType::UNSIGNED_INT;
-        indices->semantic = ge::sg::AttributeDescriptor::Semantic::indices;
-        indices->data = indices_data;
+    auto indices = std::make_shared<ge::sg::AttributeDescriptor>();
+    indices->size
+        = static_cast<int>(indices_data->size() * sizeof(indices_data->at(0)));
+    indices->numComponents = 3;
+    indices->type = ge::sg::AttributeDescriptor::DataType::UNSIGNED_INT;
+    indices->semantic = ge::sg::AttributeDescriptor::Semantic::indices;
+    indices->data = indices_data;
 
-        auto scene_mesh = ge::sg::Mesh{};
-        scene_mesh.count = indices_data->size();  // ?!
-        scene_mesh.primitive = ge::sg::Mesh::PrimitiveType::TRIANGLES;
-        scene_mesh.attributes.push_back(position);
-        scene_mesh.attributes.push_back(indices);
+    auto scene_mesh = ge::sg::Mesh{};
+    scene_mesh.count = indices_data->size();  // ?!
+    scene_mesh.primitive = ge::sg::Mesh::PrimitiveType::TRIANGLES;
+    scene_mesh.attributes.push_back(position);
+    scene_mesh.attributes.push_back(indices);
+
+    return scene_mesh;
+}
+
+SCENARIO(
+    "Conversion from ge::sg::Mesh"
+    "[graph]")
+{
+    GIVEN("Simple manifold mesh")
+    {
+        auto scene_mesh = make_scene_mesh();
 
         WHEN("The mesh is converted")
         {
@@ -108,6 +126,57 @@ SCENARIO(
                 };
 
                 REQUIRE(std::all_of(begin, end, predicate));
+            }
+        }
+    }
+}
+
+SCENARIO(
+    "Roundtrip mesh conversion"
+    "[graph]")
+{
+    GIVEN("Simple manifold mesh and its graph equivalent")
+    {
+        auto        scene_mesh = make_scene_mesh();
+        const auto &graph_mesh = lod::graph::Mesh(scene_mesh);
+
+        WHEN("The graph is converted back")
+        {
+            using SM = ge::sg::AttributeDescriptor::Semantic;
+
+            auto result_mesh = static_cast<ge::sg::Mesh>(graph_mesh);
+
+            THEN("The number of vertices is the same")
+            {
+                REQUIRE(scene_mesh.count == result_mesh.count);
+            }
+
+            THEN("The attributes contain the same amount data")
+            {
+                for (const auto &semantic : {SM::position, SM::indices}) {
+                    CAPTURE(semantic);
+                    const auto attr_in = scene_mesh.getAttribute(semantic);
+                    const auto attr_out = result_mesh.getAttribute(semantic);
+                    REQUIRE(static_cast<bool>(attr_in));
+                    REQUIRE(static_cast<bool>(attr_out));
+
+                    REQUIRE(attr_in->size == attr_out->size);
+                }
+            }
+
+            THEN("Manual confirmation of position values")
+            {
+                for (auto &&mesh : {&scene_mesh, &result_mesh}) {
+                    auto positions = read_attribute<float>(
+                        *(mesh->getAttribute(SM::position)));
+                    auto indices = read_attribute<unsigned>(
+                        *(mesh->getAttribute(SM::indices)));
+
+                    CAPTURE(positions);
+                    CAPTURE(indices);
+
+                    REQUIRE((!positions.empty() && !indices.empty()));
+                }
             }
         }
     }

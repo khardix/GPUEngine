@@ -5,11 +5,16 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <functional>
+#include <iterator>
 #include <tuple>
+#include <unordered_map>
 
 #include <glm/gtc/type_ptr.hpp>
 
+#include <geSG/AttributeDescriptor.h>
+#include <geSG/Mesh.h>
 #include <graph/Mesh.h>
 
 /** Inserts all triangles from original mesh into the graph representation.
@@ -93,4 +98,101 @@ void lod::graph::Mesh::insert(
 
         m_edges.insert(std::exchange(edge, nullptr));
     }
+}
+
+/** Prepares a position AttributeDescriptor for mesh export.
+ * @param node_count Number of nodes to be exported.
+ * @returns Shared pointer to the attribute descriptor.
+ */
+std::shared_ptr<ge::sg::AttributeDescriptor> prepare_positions(
+    std::size_t node_count)
+{
+    using DT = ge::sg::AttributeDescriptor::DataType;
+    using SM = ge::sg::AttributeDescriptor::Semantic;
+
+    auto attribute = std::make_shared<ge::sg::AttributeDescriptor>();
+    attribute->semantic = SM::position;
+    attribute->type = DT::FLOAT;
+    attribute->stride = attribute->offset = 0u;
+    attribute->numComponents = 3;  // per vertex
+
+    const auto component_count = node_count * attribute->numComponents;
+    attribute->size = static_cast<int>(sizeof(float) * component_count);
+    attribute->data = std::shared_ptr<float>(
+        new float[component_count], std::default_delete<float[]>{});
+
+    return attribute;
+}
+
+/** Prepares an index/element AttributeDescriptor for mesh export.
+ * @param edge_count Number of edges to be exported.
+ * @returns Shared pointer to the attribute descriptor.
+ */
+std::shared_ptr<ge::sg::AttributeDescriptor> prepare_indices(
+    std::size_t edge_count)
+{
+    using DT = ge::sg::AttributeDescriptor::DataType;
+    using SM = ge::sg::AttributeDescriptor::Semantic;
+
+    auto attribute = std::make_shared<ge::sg::AttributeDescriptor>();
+    attribute->semantic = SM::indices;
+    attribute->type = DT::UNSIGNED_INT;
+    attribute->stride = attribute->offset = 0u;
+    attribute->numComponents = 1;  // per element
+
+    const auto component_count = edge_count * attribute->numComponents;
+    attribute->size = static_cast<int>(sizeof(unsigned) * component_count);
+    attribute->data = std::shared_ptr<unsigned>(
+        new unsigned[component_count], std::default_delete<unsigned[]>{});
+
+    return attribute;
+}
+
+/** Converts current state of the mesh into scene graph representation.
+ * @returns Converted mesh.
+ * @throws std::runtime_error Error in memory handling.
+ */
+lod::graph::Mesh::operator ge::sg::Mesh() const
+{
+    auto index_map = std::unordered_map<const Node *, unsigned>{};
+    auto edge_set = std::unordered_set<const DirectedEdge *>{};
+
+    auto result = ge::sg::Mesh();
+    result.primitive = ge::sg::Mesh::PrimitiveType::TRIANGLES;
+    result.count = static_cast<int>(m_edges.size());  // size of element buffer
+    result.attributes.reserve(2);
+
+    // copy positions
+    auto  positions = prepare_positions(m_nodes.size());
+    auto *raw_pos = std::static_pointer_cast<float>(positions->data).get();
+    assert(raw_pos != nullptr);  // NOLINT
+
+    const auto start_pos = raw_pos;
+    for (const auto &node : m_nodes) {
+        // save index
+        index_map[&node]
+            = std::distance(start_pos, raw_pos) / positions->numComponents;
+        // copy position data
+        raw_pos = std::copy_n(
+            glm::value_ptr(node.position), positions->numComponents, raw_pos);
+    }
+    result.attributes.push_back(positions);
+
+    // copy node indexes
+    auto  indices = prepare_indices(m_edges.size());
+    auto *raw_idx = std::static_pointer_cast<unsigned>(indices->data).get();
+    assert(raw_idx != nullptr);  // NOLINT
+
+    for (const auto &edge : m_edges) {
+        if (edge_set.count(edge.get()) != 0) {  // skip processed edges
+            continue;
+        }
+        for (const auto &raw_edge : edge->triangle_edges()) {
+            *(raw_idx++) = index_map.at(raw_edge->target);  // NOLINT
+            edge_set.insert(raw_edge);
+        }
+    }
+    result.attributes.push_back(indices);
+
+    return result;
 }
