@@ -31,6 +31,10 @@ struct DirectedEdge {
     /// @brief Possibly invalid edge reference.
     using MaybeEdge = nonstd::variant<DirectedEdge *, invalid>;
 
+    /// @brief Indicates boundary edge.
+    bool boundary() const noexcept;
+    /// @brief Indicates manifold edge.
+    bool manifold() const noexcept;
     /// @brief Calculate next edge in a triangle.
     DirectedEdge *next() const noexcept;
     /// @brief Extract all edges from own triangle.
@@ -83,6 +87,20 @@ struct hash<lod::graph::UndirectedEdge> {
     }
 };
 }  // namespace std
+
+/// @return True if the edge is on a mesh boundary, false otherwise.
+inline bool lod::graph::DirectedEdge::boundary() const noexcept
+{
+    return nonstd::holds_alternative<DirectedEdge *>(neighbour)
+        && nonstd::get<DirectedEdge *>(neighbour) == nullptr;
+}
+
+/// @return True if the edge is manifold, false otherwise.
+inline bool lod::graph::DirectedEdge::manifold() const noexcept
+{
+    return !nonstd::holds_alternative<invalid>(neighbour)
+        || nonstd::get<invalid>(neighbour) != invalid::nonmanifold;
+}
 
 /** Find an edge where previous == this.
  * @return Pointer to the next edge, or nullptr if the cycle is broken.
