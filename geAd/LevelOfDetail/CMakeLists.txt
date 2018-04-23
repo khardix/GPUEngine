@@ -17,7 +17,8 @@ endforeach (dep IN LISTS external_deps)
 
 # Add the library
 add_library(${PROJECT_NAME}
-    src/graph/Mesh.cpp src/graph/algorithm.cpp)
+    src/graph/Mesh.cpp src/graph/algorithm.cpp
+    src/metric/qem.cpp)
 target_include_directories(${PROJECT_NAME}
     PUBLIC  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor>

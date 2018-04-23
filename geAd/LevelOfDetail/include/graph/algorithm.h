@@ -14,6 +14,7 @@
 
 #include "Edge.h"
 #include "Node.h"
+#include "Triangle.h"
 
 namespace lod {
 namespace graph {
@@ -21,9 +22,6 @@ namespace graph {
 struct algorithm_failure : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
-
-/// @brief Triangle nodes in edge order.
-using Triangle = std::array<const DirectedEdge *, 3>;
 
 /// @brief List all edges opposite to center node.
 std::deque<const DirectedEdge *> opposite_edges(const Node &center);

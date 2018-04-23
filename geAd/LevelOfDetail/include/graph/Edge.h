@@ -59,7 +59,6 @@ public:
     /// @brief Access referred half-edge
     DirectedEdge &referred() const;
 
-protected:
     /// @brief Extract boundary nodes in canonical order.
     std::pair<const Node *, const Node *> nodes() const;
 
@@ -136,13 +135,21 @@ inline lod::graph::UndirectedEdge::UndirectedEdge(DirectedEdge &edge) noexcept
 {
 }
 
-/** Edge's nodes in memory order. */
+/**
+ * @returns Edge's nodes in memory order.
+ * @throws std::runtime_error Edge is not part of a triangle.
+ */
 inline std::pair<const lod::graph::Node *, const lod::graph::Node *>
 lod::graph::UndirectedEdge::nodes() const
 {
-    const auto *n1 = m_edge.get().target;
-    const auto *n2 = m_edge.get().previous->target;
-    return std::make_pair(std::min(n1, n2), std::max(n1, n2));
+    const auto &edge = m_edge.get();
+    if (edge.previous == nullptr) {
+        throw std::runtime_error("Unconnected edge!");
+    }
+
+    return std::make_pair(
+        std::min(edge.target, edge.previous->target),
+        std::max(edge.target, edge.previous->target));
 }
 
 /** All edges between the same two nodes are equal. */
