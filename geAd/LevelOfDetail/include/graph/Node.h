@@ -8,8 +8,7 @@
 #include <functional>
 
 #include <glm/glm.hpp>
-
-#include "../util/hash_combinator.h"
+#include <glm/gtx/hash.hpp>
 
 namespace lod {
 namespace graph {
@@ -18,12 +17,14 @@ struct DirectedEdge;
 /// @brief Single vertex with adjacency information.
 struct Node {
     friend struct std::hash<Node>;
-
-    glm::vec3 position = {0.f, 0.f, 0.f};  ///< Vertex position in model space.
-    mutable DirectedEdge *edge = nullptr;  ///< Arbitrary first outgoing edge.
+    using position_type = glm::vec3;
 
     bool operator==(const Node &other) const noexcept;
     bool operator!=(const Node &other) const noexcept;
+
+    /// Vertex position in model space.
+    position_type         position = {0.f, 0.f, 0.f};
+    mutable DirectedEdge *edge = nullptr;  ///< Arbitrary first outgoing edge.
 };
 }  // namespace graph
 }  // namespace lod
@@ -40,8 +41,7 @@ struct hash<lod::graph::Node> {
     /// @brief Node is hashed by its position.
     return_type operator()(const argument_type &node) const noexcept
     {
-        return lod::util::hash_combinator(
-            0, node.position.x, node.position.y, node.position.z);
+        return std::hash<argument_type::position_type>{}(node.position);
     }
 };
 }  // namespace std
