@@ -8,6 +8,7 @@
  * Edge.h, and provide prepared graph traversal and analysis algorithms.
  */
 
+#include <array>
 #include <deque>
 #include <stdexcept>
 
@@ -21,8 +22,17 @@ struct algorithm_failure : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+/// @brief Triangle nodes in edge order.
+using Triangle = std::array<const DirectedEdge *, 3>;
+
+/// @brief List all edges opposite to center node.
+std::deque<const DirectedEdge *> opposite_edges(const Node &center);
+
 /// @brief List all adjacent nodes in edge order.
 std::deque<const Node *> adjacent_nodes(const Node &center);
+
+/// @brief List all adjacent triangles in edge order.
+std::deque<Triangle> adjacent_triangles(const Node &center);
 }  // namespace graph
 }  // namespace lod
 
