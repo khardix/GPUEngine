@@ -31,11 +31,16 @@ public:
     /// @brief Calculate the cost of removing an edge.
     Result operator()(const Element &edge) const;
 
-protected:
     /// @brief Calculate planar vector for a triangle.
     static const glm::vec4 plane(const graph::Triangle &triangle);
     /// @brief Calculate quadric for specified node.
     const glm::mat4 &quadric(const graph::Node &node) const;
+    /// @brief Calculate optimal position of a new node from quadric.
+    static glm::vec3 position(const glm::mat4 &quadric);
+    /// @brief Calculate the margin of error.
+    static cost::error_type error(const glm::mat4 &quadric);
+    static cost::error_type error(
+        const glm::mat4 &quadric, const glm::vec3 &position);
 
 private:
     /// Cached evaluations of existing vertices.
@@ -49,6 +54,14 @@ private:
 inline lod::metric::QEM::QEM(cache_type cache)
     : m_vertex_cache(std::move(cache))
 {
+}
+
+/** @param[in] quadric The quadric to calculate the error from.
+ * @returns The margin of error for a new node with optimal placement.
+ */
+inline lod::cost::error_type lod::metric::QEM::error(const glm::mat4 &quadric)
+{
+    return error(quadric, position(quadric));
 }
 
 #endif /* end of include guard: QEM_H_1O2EFAO6 */

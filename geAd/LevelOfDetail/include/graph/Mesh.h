@@ -5,6 +5,7 @@
  * @brief Graph representation of triangle mesh.
  */
 
+#include <array>
 #include <memory>
 #include <unordered_set>
 

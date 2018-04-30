@@ -65,6 +65,30 @@ const glm::mat4 &lod::metric::QEM::quadric(const lod::graph::Node &node) const
                std::cbegin(planes), std::cend(planes), glm::mat4(0.f));
 }
 
+/** Calculates optimal node position given a quadric.
+ * @param[in] quadric The quadric to extract the position from.
+ * @returns Optimal new node position.
+ */
+glm::vec3 lod::metric::QEM::position(const glm::mat4 &quadric)
+{
+    const auto position_mat = glm::row(quadric, 3, {0.f, 0.f, 0.f, 1.f});
+    return static_cast<glm::vec3>(
+        glm::normalize(position_mat * glm::vec4{0.f, 0.f, 0.f, 1.f}));
+}
+
+/** Calculates the cost of replacing an edge with given quadric with node at
+ * given position.
+ * @param[in] quadric A quadric belonging to the collapsed edge.
+ * @param[in] position Position of a node which will replace the edge.
+ * @return The cost of collapse.
+ */
+lod::cost::error_type lod::metric::QEM::error(
+    const glm::mat4 &quadric, const glm::vec3 &position)
+{
+    const auto position_norm = glm::vec4(position, 1.f);
+    return glm::dot(position_norm * quadric, position_norm);
+}
+
 /** Calculate the collapse cost and provide optimal new node placement.
  * @param[in] edge The edge to evaluate.
  * @returns Cost and placement suggestion.
@@ -76,18 +100,9 @@ lod::metric::QEM::Result lod::metric::QEM::operator()(const Element &edge) const
     auto        quadric
         = QEM::quadric(*std::get<0>(nodes)) + QEM::quadric(*std::get<1>(nodes));
 
-    // calculate best position of a new node
-    const auto &position_mat = glm::inverse([&quadric] {
-        auto mat = quadric;
-        glm::row(mat, 3, {0.f, 0.f, 0.f, 1.f});
-        return mat;
-    }());
-    const auto &position
-        = glm::normalize(position_mat * glm::vec4(0.f, 0.f, 0.f, 1.f));
+    const auto pos = position(quadric);
+    const auto err = error(quadric, pos);
 
-    // calculate margin of error
-    const auto &error = glm::dot(position * quadric, position);
-
-    m_vertex_cache.emplace(glm::vec3(position), std::move(quadric));
-    return Result(error, glm::vec3(position));
+    m_vertex_cache.emplace(pos, std::move(quadric));
+    return Result(err, pos);
 }
