@@ -98,3 +98,4 @@ lod::metric::QEM<Tag>::error(
 
 // Explicitly instantiate the template
 template class lod::metric::QEM<lod::operation::FullEdgeTag>;
+template class lod::metric::QEM<lod::operation::HalfEdgeTag>;

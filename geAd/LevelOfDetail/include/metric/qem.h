@@ -74,7 +74,7 @@ inline typename QEM<Tag>::result_type::cost_type QEM<Tag>::error(
  * @returns Cost and placement suggestion.
  */
 template <>
-auto lod::metric::QEM<lod::operation::FullEdgeTag>::operator()(
+inline auto QEM<operation::FullEdgeTag>::operator()(
     const element_type &edge) const -> result_type
 {
     // calculate quadric of the new node: Q = Q1 + Q2
@@ -88,7 +88,20 @@ auto lod::metric::QEM<lod::operation::FullEdgeTag>::operator()(
     return result_type(edge, err, pos);
 }
 
+template <>
+inline auto QEM<operation::HalfEdgeTag>::operator()(
+    const element_type &edge) const -> result_type
+{
+    const auto &nodes = std::make_pair(edge->target, edge->previous->target);
+    auto qmat = quadric(*std::get<0>(nodes)) + quadric(*std::get<1>(nodes));
+
+    // calculate error of collapse to the target node
+    const auto err = error(qmat, edge->target->position);
+    return result_type(edge, err, edge->target->position);
+}
+
 extern template class QEM<operation::FullEdgeTag>;
+extern template class QEM<operation::HalfEdgeTag>;
 
 }  // namespace metric
 }  // namespace lod
