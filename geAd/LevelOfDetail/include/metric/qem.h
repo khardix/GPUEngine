@@ -11,6 +11,7 @@
 #include <glm/gtx/hash.hpp>
 
 #include "../graph/Edge.h"
+#include "../graph/Mesh.h"
 #include "../graph/Node.h"
 #include "../graph/Triangle.h"
 #include "../protocol.h"
@@ -19,8 +20,8 @@ namespace lod {
 namespace metric {
 class QEM {
 public:
-    using Element = graph::UndirectedEdge;
-    using Result = cost::VertexPlacement;
+    using Element = graph::Mesh::EdgeSet::value_type;
+    using Result = operation::VertexPlacement<Element, float>;
 
     using cache_type
         = std::unordered_map<graph::Node::position_type, glm::mat4>;
@@ -38,8 +39,8 @@ public:
     /// @brief Calculate optimal position of a new node from quadric.
     static glm::vec3 position(const glm::mat4 &quadric);
     /// @brief Calculate the margin of error.
-    static cost::error_type error(const glm::mat4 &quadric);
-    static cost::error_type error(
+    static Result::cost_type error(const glm::mat4 &quadric);
+    static Result::cost_type error(
         const glm::mat4 &quadric, const glm::vec3 &position);
 
 private:
@@ -59,7 +60,8 @@ inline lod::metric::QEM::QEM(cache_type cache)
 /** @param[in] quadric The quadric to calculate the error from.
  * @returns The margin of error for a new node with optimal placement.
  */
-inline lod::cost::error_type lod::metric::QEM::error(const glm::mat4 &quadric)
+inline lod::metric::QEM::Result::cost_type lod::metric::QEM::error(
+    const glm::mat4 &quadric)
 {
     return error(quadric, position(quadric));
 }

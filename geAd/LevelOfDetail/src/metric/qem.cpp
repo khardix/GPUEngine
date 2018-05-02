@@ -82,7 +82,7 @@ glm::vec3 lod::metric::QEM::position(const glm::mat4 &quadric)
  * @param[in] position Position of a node which will replace the edge.
  * @return The cost of collapse.
  */
-lod::cost::error_type lod::metric::QEM::error(
+lod::metric::QEM::Result::cost_type lod::metric::QEM::error(
     const glm::mat4 &quadric, const glm::vec3 &position)
 {
     const auto position_norm = glm::vec4(position, 1.f);
@@ -96,7 +96,7 @@ lod::cost::error_type lod::metric::QEM::error(
 lod::metric::QEM::Result lod::metric::QEM::operator()(const Element &edge) const
 {
     // calculate quadric of the new node: Q = Q1 + Q2
-    const auto &nodes = edge.nodes();
+    const auto &nodes = std::make_pair(edge->target, edge->previous->target);
     auto        quadric
         = QEM::quadric(*std::get<0>(nodes)) + QEM::quadric(*std::get<1>(nodes));
 
@@ -104,5 +104,5 @@ lod::metric::QEM::Result lod::metric::QEM::operator()(const Element &edge) const
     const auto err = error(quadric, pos);
 
     m_vertex_cache.emplace(pos, std::move(quadric));
-    return Result(err, pos);
+    return Result(edge, err, pos);
 }
