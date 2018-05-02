@@ -14,6 +14,8 @@ SCENARIO(
     "[qem]")
 {
     using namespace lod::graph;
+    using namespace lod::operation;
+    using lod::metric::QEM;
 
     GIVEN("Three nodes defining a plane")
     {
@@ -37,7 +39,7 @@ SCENARIO(
 
         WHEN("A plane vector is calculated")
         {
-            const auto plane = lod::metric::QEM::plane(triangle);
+            const auto plane = QEM<FullEdgeTag>::plane(triangle);
 
             THEN("It computes the expected values")
             {
@@ -79,7 +81,7 @@ SCENARIO(
 
         WHEN("A quadric is calculated")
         {
-            const auto qem = lod::metric::QEM();
+            const auto qem = QEM<FullEdgeTag>();
             const auto quadric = qem.quadric(C);
 
             THEN("It provides expected results")
@@ -111,7 +113,7 @@ SCENARIO(
 
         WHEN("An optimal position is calculated")
         {
-            const auto position = lod::metric::QEM::position(quadric);
+            const auto position = QEM<FullEdgeTag>::position(quadric);
 
             THEN("It contains the expected value")
             {
@@ -123,7 +125,7 @@ SCENARIO(
         WHEN("An error is measured")
         {
             const auto error
-                = lod::metric::QEM::error(quadric, glm::vec3{1.f, 1.f, 1.f});
+                = QEM<FullEdgeTag>::error(quadric, glm::vec3{1.f, 1.f, 1.f});
 
             THEN("It has the expected size")
             {
