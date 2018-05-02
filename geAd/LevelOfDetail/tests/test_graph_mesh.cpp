@@ -86,8 +86,9 @@ SCENARIO(
             {
                 auto begin = std::cbegin(graph_mesh.nodes());
                 auto end = std::cend(graph_mesh.nodes());
-                auto predicate
-                    = [](const Node &node) { return node.edge != nullptr; };
+                auto predicate = [](const Mesh::NodeSet::value_type &node) {
+                    return node.edge != nullptr;
+                };
 
                 REQUIRE(std::all_of(begin, end, predicate));
             }
@@ -101,7 +102,7 @@ SCENARIO(
             {
                 auto begin = graph_mesh.edges().cbegin();
                 auto end = graph_mesh.edges().cend();
-                auto compare = [](const std::unique_ptr<DirectedEdge> &edge) {
+                auto compare = [](const Mesh::EdgeSet::value_type &edge) {
                     if (!holds_alternative<DirectedEdge *>(edge->neighbour)) {
                         return false;
                     }
@@ -119,7 +120,7 @@ SCENARIO(
             {
                 auto begin = std::cbegin(graph_mesh.edges());
                 auto end = std::cend(graph_mesh.edges());
-                auto predicate = [](const std::unique_ptr<DirectedEdge> &edge) {
+                auto predicate = [](const Mesh::EdgeSet::value_type &edge) {
                     return (edge->previous != nullptr)
                         && (edge->previous->previous != nullptr)
                         && (edge->previous->previous->previous == edge.get());

@@ -21,7 +21,7 @@ namespace graph {
 class Mesh {
 public:
     using NodeSet = std::unordered_set<Node>;
-    using EdgeSet = std::unordered_set<std::unique_ptr<DirectedEdge>>;
+    using EdgeSet = std::unordered_set<std::shared_ptr<DirectedEdge>>;
     using EdgeCache = std::unordered_set<UndirectedEdge>;
 
     /// @brief Create graph from prepared sets.
@@ -45,8 +45,8 @@ protected:
     void insert(const ge::sg::Triangle &, EdgeCache &cache);
 
 private:
-    std::unordered_set<Node>                          m_nodes = {};
-    std::unordered_set<std::unique_ptr<DirectedEdge>> m_edges = {};
+    NodeSet m_nodes = {};
+    EdgeSet m_edges = {};
 };
 }  // namespace graph
 }  // namespace lod
