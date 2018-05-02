@@ -8,10 +8,24 @@
 #include <memory>
 #include <type_traits>
 
+#include "graph/Edge.h"
 #include "graph/Node.h"
 
 namespace lod {
 namespace operation {
+/// @brief Tag type for operations working with nodes.
+struct NodeTag {
+    using element_type = graph::Node;
+};
+/// @brief Tag type for operations working with half-edges.
+struct HalfEdgeTag {
+    using element_type = std::shared_ptr<graph::DirectedEdge>;
+};
+/// @brief Tag type for operations working with full-edges.
+struct FullEdgeTag {
+    using element_type = std::shared_ptr<graph::DirectedEdge>;
+};
+
 /// @brief Pointer to the evaluated element.
 template <typename Element>
 class ElementPointer {
