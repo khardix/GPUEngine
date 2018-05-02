@@ -12,6 +12,7 @@
 #include <geSG/Mesh.h>
 #include <geSG/MeshTriangleIterators.h>
 
+#include "../protocol.h"
 #include "../util/hash_combinator.h"
 #include "Edge.h"
 #include "Node.h"
@@ -40,6 +41,10 @@ public:
     /// @brief Access to stored edges.
     const EdgeSet &edges() const noexcept;
 
+    /// @brief Access the containter of selected type.
+    template <typename Element>
+    const std::unordered_set<Element> &container() const noexcept;
+
 protected:
     /// @brief Insert single triangle into a graph.
     void insert(const ge::sg::Triangle &, EdgeCache &cache);
@@ -48,8 +53,6 @@ private:
     NodeSet m_nodes = {};
     EdgeSet m_edges = {};
 };
-}  // namespace graph
-}  // namespace lod
 
 
 // Inline and template members
@@ -57,18 +60,32 @@ private:
  * @param[in] nodes Set of nodes for the new graph.
  * @param[in] edges Set of edges for the new graph.
  */
-inline lod::graph::Mesh::Mesh(NodeSet nodes, EdgeSet edges)
+inline Mesh::Mesh(NodeSet nodes, EdgeSet edges)
     : m_nodes(std::move(nodes)), m_edges(std::move(edges))
 {
 }
 
-inline const lod::graph::Mesh::NodeSet &lod::graph::Mesh::nodes() const noexcept
+inline const Mesh::NodeSet &Mesh::nodes() const noexcept
 {
     return m_nodes;
 }
-inline const lod::graph::Mesh::EdgeSet &lod::graph::Mesh::edges() const noexcept
+inline const Mesh::EdgeSet &Mesh::edges() const noexcept
 {
     return m_edges;
 }
+
+template <>
+inline const Mesh::NodeSet &Mesh::container<Node>() const noexcept
+{
+    return m_nodes;
+}
+template <>
+inline const Mesh::EdgeSet &Mesh::container<std::shared_ptr<DirectedEdge>>()
+    const noexcept
+{
+    return m_edges;
+}
+}  // namespace graph
+}  // namespace lod
 
 #endif /* end of include guard: MESH_H_VR9OG0AK */
