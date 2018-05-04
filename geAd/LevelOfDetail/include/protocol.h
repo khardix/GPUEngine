@@ -67,13 +67,14 @@ template <typename Element, typename ErrorType = float>
 class Simple {
 public:
     using cost_type = ErrorType;
+    using element_pointer = ElementPointer<Element>;
 
-    explicit Simple(ElementPointer<Element> element, ErrorType cost) noexcept;
+    explicit Simple(element_pointer element, cost_type cost) noexcept;
 
     /// @brief Access stored element.
-    const ElementPointer<Element> &element() const noexcept;
+    const element_pointer &element() const noexcept;
     /// @brief Access stored cost.
-    const ErrorType &cost() const noexcept;
+    const cost_type &cost() const noexcept;
 
     /// @brief Check the poiter validity.
     explicit operator bool() const noexcept;
@@ -85,8 +86,8 @@ public:
     bool operator<(const ErrorType &cost) const noexcept;
 
 private:
-    ElementPointer<Element> m_element;
-    cost_type               m_cost = static_cast<ErrorType>(0);
+    element_pointer m_element;
+    cost_type       m_cost = static_cast<ErrorType>(0);
 };
 
 /// @brief Error measurement with placement hint.
