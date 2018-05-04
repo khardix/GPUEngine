@@ -27,10 +27,32 @@ struct algorithm_failure : public std::runtime_error {
 std::deque<DirectedEdge *> opposite_edges(const Node &center);
 
 /// @brief List all adjacent nodes in edge order.
-std::deque<const Node *> adjacent_nodes(const Node &center);
+std::deque<const Node *> adjacent_nodes(
+    const std::deque<DirectedEdge *> &edge_ring);
+/** @overload
+ * @param[in] center The center node.
+ * @return Container of nodes adjacent to the center node.
+ * @throws algorithm_failure On encounter with non-manifold edge.
+ */
+inline std::deque<const Node *> adjacent_nodes(const Node &center)
+{
+    return adjacent_nodes(opposite_edges(center));
+}
 
 /// @brief List all adjacent triangles in edge order.
-std::deque<Triangle> adjacent_triangles(const Node &center);
+std::deque<Triangle> adjacent_triangles(
+    const std::deque<DirectedEdge *> &edge_ring);
+/** @overload
+ * @param[in] center The center node.
+ * @return Container of triangles adjacent to the center node.
+ * @throws algorithm_failure On encounter with non-manifold edge.
+ */
+inline std::deque<Triangle> adjacent_triangles(const Node &center)
+{
+    return adjacent_triangles(opposite_edges(center));
+}
+
+
 }  // namespace graph
 }  // namespace lod
 

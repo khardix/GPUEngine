@@ -70,27 +70,27 @@ catch (const nonstd::bad_variant_access &) {
  * (source Node before target Node for each edge opposite to center).
  * @todo Currently cannot deal with non-manifold vertices.
  * @see lod::graph::opposite_edges().
- * @param[in] center The center node.
+ * @param[in] edge_ring The ring of edges surrounding a node.
  * @return Container of nodes adjacent to the center node.
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
-std::deque<const Node *> adjacent_nodes(const Node &center)
+std::deque<const Node *> adjacent_nodes(
+    const std::deque<DirectedEdge *> &edge_ring)
 {
     auto full_circle = [](const auto &edges) -> bool {
         return (edges.front()->previous->target) == (edges.back()->target);
     };
 
-    auto edges = opposite_edges(center);
     auto result = std::deque<const Node *>{};
 
     std::transform(
-        std::cbegin(edges),
-        std::cend(edges),
+        std::cbegin(edge_ring),
+        std::cend(edge_ring),
         std::back_inserter(result),
         [](const auto &edge) { return edge->target; });
 
-    if (!full_circle(edges)) {  // add the first node explicitly
-        result.push_front(edges.front()->previous->target);
+    if (!full_circle(edge_ring)) {  // add the first node explicitly
+        result.push_front(edge_ring.front()->previous->target);
     }
 
     return result;
@@ -99,18 +99,18 @@ std::deque<const Node *> adjacent_nodes(const Node &center)
 /** Attempts to list all adjacent triangles in edge order.
  * @todo Currently cannot deal with non-manifold vertices.
  * @see lod::graph::opposite_edges().
- * @param[in] center The center node.
+ * @param[in] edge_ring The ring of edges surrounding a node.
  * @return Container of triangles adjacent to the center node.
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
-std::deque<Triangle> adjacent_triangles(const Node &center)
+std::deque<Triangle> adjacent_triangles(
+    const std::deque<DirectedEdge *> &edge_ring)
 {
-    auto edges = opposite_edges(center);
     auto result = std::deque<Triangle>{};
 
     std::transform(
-        std::cbegin(edges),
-        std::cend(edges),
+        std::cbegin(edge_ring),
+        std::cend(edge_ring),
         std::back_inserter(result),
         [](const auto &edge) {
             return static_cast<const DirectedEdge *const>(edge)
