@@ -31,6 +31,11 @@ struct DirectedEdge {
     /// @brief Possibly invalid edge reference.
     using MaybeEdge = nonstd::variant<DirectedEdge *, invalid>;
 
+    explicit DirectedEdge(
+        const Node *  target = nullptr,
+        DirectedEdge *previous = nullptr,
+        MaybeEdge     neighbour = nullptr) noexcept;
+
     /// @brief Indicates boundary edge.
     bool boundary() const noexcept;
     /// @brief Indicates manifold edge.
@@ -87,6 +92,15 @@ struct hash<lod::graph::UndirectedEdge> {
     }
 };
 }  // namespace std
+
+/// @note Needed for std::make_{unique,shared}<DirectedEdge>().
+inline lod::graph::DirectedEdge::DirectedEdge(
+    const Node *target, DirectedEdge *previous, MaybeEdge neighbour) noexcept
+    : target(std::move_if_noexcept(target)),
+      previous(std::move_if_noexcept(previous)),
+      neighbour(std::move_if_noexcept(neighbour))
+{
+}
 
 /// @return True if the edge is on a mesh boundary, false otherwise.
 inline bool lod::graph::DirectedEdge::boundary() const noexcept
