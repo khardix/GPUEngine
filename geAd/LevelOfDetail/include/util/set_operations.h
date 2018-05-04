@@ -11,6 +11,18 @@
 
 namespace lod {
 namespace util {
+/** @brief Type converter of raw pointer to non-owning shared_ptr.
+ * Useful for searching in sets of smart pointers with a raw one.
+ * @param ptr The pointer to elevate.
+ * @return Non-owning shared_ptr equivalent to ptr.
+ */
+template <typename T>
+inline std::shared_ptr<T> elevate(T *ptr)
+{
+    return {ptr, [](T *) {}};
+}
+
+
 /** @brief Symmetrical difference.
  * @param[in] lhs One set to be processed.
  * @param[in] rhs The other set to be processed.
