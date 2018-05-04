@@ -39,6 +39,7 @@ install(DIRECTORY include/ vendor/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/geAd/
 # Add tests
 add_executable(${PROJECT_NAME}TestSuite
     tests/main.cpp
+    tests/test_utility_set_operation.cpp
     tests/test_graph_node.cpp tests/test_graph_edge.cpp tests/test_graph_mesh.cpp tests/test_graph_algorithm.cpp
     tests/test_metric_qem.cpp)
 target_compile_features(${PROJECT_NAME}TestSuite PRIVATE cxx_std_14)
