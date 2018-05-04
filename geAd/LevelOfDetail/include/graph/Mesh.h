@@ -26,12 +26,14 @@ public:
     using EdgeCache = std::unordered_set<UndirectedEdge>;
 
     /// @brief Create graph from prepared sets.
-    explicit Mesh(NodeSet nodes, EdgeSet edges);
+    explicit Mesh(NodeSet &&nodes, EdgeSet &&edges);
     /// @brief Create graph from existing mesh.
     explicit Mesh(/*const*/ ge::sg::Mesh &original);
 
     Mesh(const Mesh &) = delete;
+    Mesh(Mesh &&) = default;
     Mesh &operator=(const Mesh &) = delete;
+    Mesh &operator=(Mesh &&) = default;
 
     /// @brief Create an equivalent ge::sg::Mesh.
     explicit operator ge::sg::Mesh() const;
@@ -62,7 +64,7 @@ private:
  * @param[in] nodes Set of nodes for the new graph.
  * @param[in] edges Set of edges for the new graph.
  */
-inline Mesh::Mesh(NodeSet nodes, EdgeSet edges)
+inline Mesh::Mesh(NodeSet &&nodes, EdgeSet &&edges)
     : m_nodes(std::move(nodes)), m_edges(std::move(edges))
 {
 }
