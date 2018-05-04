@@ -37,8 +37,10 @@ public:
     explicit operator ge::sg::Mesh() const;
 
     /// @brief Access to stored nodes.
+    NodeSet &      nodes() noexcept;
     const NodeSet &nodes() const noexcept;
     /// @brief Access to stored edges.
+    EdgeSet &      edges() noexcept;
     const EdgeSet &edges() const noexcept;
 
     /// @brief Access the containter of selected type.
@@ -65,9 +67,17 @@ inline Mesh::Mesh(NodeSet nodes, EdgeSet edges)
 {
 }
 
+inline Mesh::NodeSet &Mesh::nodes() noexcept
+{
+    return m_nodes;
+}
 inline const Mesh::NodeSet &Mesh::nodes() const noexcept
 {
     return m_nodes;
+}
+inline Mesh::EdgeSet &Mesh::edges() noexcept
+{
+    return m_edges;
 }
 inline const Mesh::EdgeSet &Mesh::edges() const noexcept
 {
