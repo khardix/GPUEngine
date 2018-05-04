@@ -38,6 +38,7 @@ struct DirectedEdge {
     /// @brief Calculate next edge in a triangle.
     DirectedEdge *next() const noexcept;
     /// @brief Extract all edges from own triangle.
+    std::array<DirectedEdge *, 3>       triangle_edges();
     std::array<const DirectedEdge *, 3> triangle_edges() const;
 
     const Node *  target = nullptr;     ///< Target vertex.
@@ -106,10 +107,11 @@ inline bool lod::graph::DirectedEdge::manifold() const noexcept
  */
 inline lod::graph::DirectedEdge *lod::graph::DirectedEdge::next() const noexcept
 {
-    for (auto cur = previous;; cur = cur->previous) {
-        if (cur == nullptr || cur->previous == this) {
-            return cur;
-        }
+    if (previous == nullptr) {
+        return nullptr;
+    }
+    else {
+        return previous->previous;
     }
 }
 
@@ -119,6 +121,15 @@ inline lod::graph::DirectedEdge *lod::graph::DirectedEdge::next() const noexcept
  */
 inline std::array<const lod::graph::DirectedEdge *, 3>
 lod::graph::DirectedEdge::triangle_edges() const
+{
+    if (previous == nullptr || previous->previous == nullptr) {
+        throw std::runtime_error("Unconnected edges!");
+    }
+    return {this, previous->previous, previous};
+}
+/// @overload
+inline std::array<lod::graph::DirectedEdge *, 3>
+lod::graph::DirectedEdge::triangle_edges()
 {
     if (previous == nullptr || previous->previous == nullptr) {
         throw std::runtime_error("Unconnected edges!");
