@@ -20,11 +20,11 @@ namespace graph {
  * @return Container of edges in order.
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
-std::deque<const DirectedEdge *> opposite_edges(const Node &center) try {
+std::deque<DirectedEdge *> opposite_edges(const Node &center) try {
     if (center.edge == nullptr) {
         throw std::runtime_error("Sole node!");
     }
-    auto result = std::deque<const DirectedEdge *>{};
+    auto result = std::deque<DirectedEdge *>{};
 
     const auto next = [](const DirectedEdge *const edge) -> DirectedEdge * {
         auto neigh = nonstd::get<DirectedEdge *>(edge->next()->neighbour);
@@ -112,7 +112,10 @@ std::deque<Triangle> adjacent_triangles(const Node &center)
         std::cbegin(edges),
         std::cend(edges),
         std::back_inserter(result),
-        [](const auto &edge) { return edge->triangle_edges(); });
+        [](const auto &edge) {
+            return static_cast<const DirectedEdge *const>(edge)
+                ->triangle_edges();
+        });
     return result;
 }
 }  // namespace graph

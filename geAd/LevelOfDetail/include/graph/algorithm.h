@@ -24,7 +24,7 @@ struct algorithm_failure : public std::runtime_error {
 };
 
 /// @brief List all edges opposite to center node.
-std::deque<const DirectedEdge *> opposite_edges(const Node &center);
+std::deque<DirectedEdge *> opposite_edges(const Node &center);
 
 /// @brief List all adjacent nodes in edge order.
 std::deque<const Node *> adjacent_nodes(const Node &center);
