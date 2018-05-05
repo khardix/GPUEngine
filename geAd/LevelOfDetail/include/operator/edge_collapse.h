@@ -18,12 +18,9 @@ namespace common {
 struct EdgeCollapse {
     /// @brief Check for possible mesh fold.
     static bool would_fold(
-        [[gnu::unused]] const graph::DirectedEdge &opposite,
-        [[gnu::unused]] const graph::Node &        current,
-        [[gnu::unused]] const graph::Node &        candidate)
-    {
-        return false;
-    }
+        const graph::DirectedEdge &opposite,
+        const graph::Node &        current,
+        const graph::Node &        candidate);
     /// @brief Check for possible creation of non-manifold edges.
     static bool nonmanifold_collapse([
         [gnu::unused]] const graph::DirectedEdge &collapsed)

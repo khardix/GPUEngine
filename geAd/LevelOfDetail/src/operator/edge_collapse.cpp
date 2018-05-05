@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include <glm/glm.hpp>
+
 #include <graph/Node.h>
 #include <graph/algorithm.h>
 #include <operator/edge_collapse.h>
@@ -44,6 +46,35 @@ graph::DirectedEdge *connect_neighbours(
     return lneigh == nullptr ? rneigh : lneigh;
 }
 
+/** Checks for possible folds in mesh by measuring the angle of normal vectors
+ * of original and candidate triangle.
+ * @param[in] opposite The edge common to both triangles, opposite to the nodes.
+ * @param[in] current The last node of current triangle.
+ * @param[in] candidate The last node of candidate triangle.
+ * @returns True if there is a high probability of fold (∠ ≥ 90°),
+ * false otherwise.
+ */
+bool common::EdgeCollapse::would_fold(
+    const graph::DirectedEdge &opposite,
+    const graph::Node &        current,
+    const graph::Node &        candidate)
+{
+    const auto &origin_pos = opposite.previous->target->position;
+    const auto &target_pos = opposite.target->position;
+    const auto &current_pos = current.position;
+    const auto &candidate_pos = candidate.position;
+
+    const auto current_normal = glm::normalize(
+        glm::cross(origin_pos - current_pos, target_pos - current_pos));
+    const auto candidate_normal = glm::normalize(
+        glm::cross(origin_pos - candidate_pos, target_pos - candidate_pos));
+
+    const auto angle
+        = glm::degrees(glm::acos(glm::dot(current_normal, candidate_normal)));
+
+    return angle >= 90.0;
+}
+
 /** Applies the operator to the mesh.
  * @param mesh The mesh to be modified.
  * @param operation The operation to perform.
@@ -60,15 +91,15 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
     auto modified = result_type{};
     auto to_delete = Mesh::EdgeSet{};
 
-    const auto edge = operation.element().get();
-    const auto target_node = edge->target;
-    const auto origin_node = edge->previous->target;
+    const auto collapsed_edge = operation.element().get();
+    const auto target_node = collapsed_edge->target;
+    const auto origin_node = collapsed_edge->previous->target;
 
     auto       edge_ring = opposite_edges(*origin_node);
     const auto edge_ring_complete
         = edge_ring.front()->previous->target == edge_ring.back()->target;
 
-    /* Marks all edges from a triangle for deletion,
+    /** Marks all edges from a triangle for deletion,
      * and remove them from nodes that refer to them.
      */
     auto mark_triangle_deleted = [&mesh_edges, &to_delete](auto &&start_edge) {
@@ -84,6 +115,27 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
             to_delete.insert(*edge_iter);
         }
     };
+
+    /// This triangle will be replaced by previous one in the ring.
+    auto replaced_by_prev = [&target_node](const auto &ring_edge) -> bool {
+        return ring_edge->target == target_node;
+    };
+    /// This triangle will be replaced by next one in the ring.
+    auto replaced_by_next = [&target_node](const auto &ring_edge) -> bool {
+        return ring_edge->previous->target == target_node;
+    };
+
+    // Make preliminary checks for operation validity
+    auto possible_fold = std::any_of(
+        std::cbegin(edge_ring), std::cend(edge_ring), [&](const auto &edge) {
+            if (replaced_by_prev(edge) || replaced_by_next(edge)) {
+                return false;
+            }
+            return would_fold(*edge, *origin_node, *target_node);
+        });
+    if (possible_fold) {
+        return modified;
+    }
 
     // Apply the edge adjustments
     for (auto &&opposite : edge_ring) {

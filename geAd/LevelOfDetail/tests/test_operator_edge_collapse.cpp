@@ -61,6 +61,32 @@ SCENARIO(
     using Operation = operation::Simple<Tag::element_type>;
     using Labeled = std::tuple<std::string, Operation>;
 
+    GIVEN("Two opposite triangles")
+    {
+        using lod::oper::common::EdgeCollapse;
+
+        auto O = graph::Node{{0.f, 0.f, 0.f}};
+        auto T = graph::Node{{1.f, 0.f, 0.f}};
+        auto C = graph::Node{{0.f, 1.f, 0.f}};
+
+        auto A = graph::Node{{0.f, -1.f, 0.f}};
+        auto B = graph::Node{{0.f, 1.f, 1.f}};
+
+        auto triangle = graph::make_triangle({&O, &T, &A});
+
+        WHEN("Measuring transformation for folds")
+        {
+            THEN("Potential fold is detected")
+            {
+                REQUIRE(EdgeCollapse::would_fold(*triangle[1], C, A));
+            }
+            THEN("Small change passes")
+            {
+                REQUIRE(!EdgeCollapse::would_fold(*triangle[1], C, B));
+            }
+        }
+    }
+
     GIVEN("Mesh and Half-Edge collapse operator")
     {
         auto mesh = make_mesh();
