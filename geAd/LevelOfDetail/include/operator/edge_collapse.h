@@ -22,11 +22,7 @@ struct EdgeCollapse {
         const graph::Node &        current,
         const graph::Node &        candidate);
     /// @brief Check for possible creation of non-manifold edges.
-    static bool nonmanifold_collapse([
-        [gnu::unused]] const graph::DirectedEdge &collapsed)
-    {
-        return false;
-    }
+    static bool nonmanifold_collapse(const graph::DirectedEdge &collapsed);
 };
 }  // namespace common
 

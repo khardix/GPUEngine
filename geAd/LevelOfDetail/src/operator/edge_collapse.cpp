@@ -75,6 +75,34 @@ bool common::EdgeCollapse::would_fold(
     return angle >= 90.0;
 }
 
+/** Checks for creation of non-manifold edges by counting common neighbour
+ * nodes. If the collapsed nodes have 3 or more common adjacent nodes, there
+ * will be (at least one) non-manifold edge after the collapse.
+ * @param[in] collapsed The collapsed edge.
+ * @return True if the collapse would cause non-manifold edge, false otherwise.
+ */
+bool common::EdgeCollapse::nonmanifold_collapse(
+    const graph::DirectedEdge &collapsed)
+{
+    using namespace lod::graph;
+    using trans = std::pair<const Node *, Mesh::NodeSet &>;
+
+    auto origin_nodes = Mesh::NodeSet{}, target_nodes = Mesh::NodeSet{};
+    for (auto &&t : {trans{collapsed.previous->target, origin_nodes},
+                     trans{collapsed.target, target_nodes}}) {
+        auto container = adjacent_nodes(*t.first);
+        std::transform(
+            std::begin(container),
+            std::end(container),
+            std::inserter(t.second, t.second.end()),
+            [](auto &&node_ptr) -> Node { return *node_ptr; });
+    }
+
+    const auto common_nodes = util::intersection(origin_nodes, target_nodes);
+    return common_nodes.size() >= 3;
+}
+
+
 /** Applies the operator to the mesh.
  * @param mesh The mesh to be modified.
  * @param operation The operation to perform.
@@ -126,6 +154,10 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
     };
 
     // Make preliminary checks for operation validity
+    if (nonmanifold_collapse(*collapsed_edge)) {
+        return modified;
+    }
+
     auto possible_fold = std::any_of(
         std::cbegin(edge_ring), std::cend(edge_ring), [&](const auto &edge) {
             if (replaced_by_prev(edge) || replaced_by_next(edge)) {
