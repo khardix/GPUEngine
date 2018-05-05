@@ -18,7 +18,8 @@ endforeach (dep IN LISTS external_deps)
 # Add the library
 add_library(${PROJECT_NAME}
     src/graph/Triangle.cpp src/graph/Mesh.cpp src/graph/algorithm.cpp
-    src/metric/qem.cpp)
+    src/metric/qem.cpp
+    src/operator/edge_collapse.cpp)
 target_include_directories(${PROJECT_NAME}
     PUBLIC  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor>
@@ -41,7 +42,8 @@ add_executable(${PROJECT_NAME}TestSuite
     tests/main.cpp
     tests/test_utility_set_operation.cpp
     tests/test_graph_node.cpp tests/test_graph_edge.cpp tests/test_graph_mesh.cpp tests/test_graph_algorithm.cpp
-    tests/test_metric_qem.cpp)
+    tests/test_metric_qem.cpp
+    tests/test_operator_edge_collapse.cpp)
 target_compile_features(${PROJECT_NAME}TestSuite PRIVATE cxx_std_14)
 target_link_libraries(${PROJECT_NAME}TestSuite ${PROJECT_NAME})
 add_test(test_lod_addon ${PROJECT_NAME}TestSuite)

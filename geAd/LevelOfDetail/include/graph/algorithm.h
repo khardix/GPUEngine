@@ -52,7 +52,18 @@ inline std::deque<Triangle> adjacent_triangles(const Node &center)
     return adjacent_triangles(opposite_edges(center));
 }
 
-
+/// @brief List all emanating edges.
+std::deque<DirectedEdge *> emanating_edges(
+    const std::deque<DirectedEdge *> &edge_ring);
+/** @overload
+ * @param[in] center The center node.
+ * @return Container of edges emanating from center.
+ * @throws algorithm_failure On encounter with non-manifold edge.
+ */
+inline std::deque<DirectedEdge *> emanating_edges(const Node &center)
+{
+    return emanating_edges(opposite_edges(center));
+}
 }  // namespace graph
 }  // namespace lod
 

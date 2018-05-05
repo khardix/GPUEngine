@@ -118,5 +118,25 @@ std::deque<Triangle> adjacent_triangles(
         });
     return result;
 }
+
+/** Attempts to list all emanating edges.
+ * @todo Currently cannot deal with non-manifold vertices.
+ * @see lod::graph::opposite_edges().
+ * @param[in] edge_ring The ring of edges surrounding a node.
+ * @return Container of edges emanating from the center node.
+ * @throws algorithm_failure On encounter with non-manifold edge.
+ */
+std::deque<DirectedEdge *> emanating_edges(
+    const std::deque<DirectedEdge *> &edge_ring)
+{
+    auto result = std::deque<DirectedEdge *>{};
+
+    std::transform(
+        std::cbegin(edge_ring),
+        std::cend(edge_ring),
+        std::back_inserter(result),
+        [](const auto &edge) { return edge->previous; });
+    return result;
+}
 }  // namespace graph
 }  // namespace lod
