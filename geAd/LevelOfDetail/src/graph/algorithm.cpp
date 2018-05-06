@@ -20,40 +20,49 @@ namespace graph {
  * @return Container of edges in order.
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
-std::deque<DirectedEdge *> opposite_edges(const Node &center) try {
-    if (center.edge == nullptr) {
+std::deque<DirectedEdge::pointer_type> opposite_edges(const Node &center) try {
+    if (center.edge.expired()) {
         throw std::runtime_error("Sole node!");
     }
-    auto result = std::deque<DirectedEdge *>{};
+    auto result = std::deque<DirectedEdge::pointer_type>{};
 
-    const auto next = [](const DirectedEdge *const edge) -> DirectedEdge * {
-        auto neigh = nonstd::get<DirectedEdge *>(edge->next()->neighbour);
-        return neigh == nullptr ? nullptr : neigh->next();
+    const auto next = [](const DirectedEdge::const_pointer_type &edge) {
+        auto weak_neighbour
+            = nonstd::get<DirectedEdge::weak_type>(edge->next()->neighbour());
+        if (auto neigh = weak_neighbour.lock()) {
+            return neigh->next();
+        }
+        return DirectedEdge::pointer_type(nullptr);
     };
-    const auto prev = [](const DirectedEdge *const edge) -> DirectedEdge * {
-        auto neigh = nonstd::get<DirectedEdge *>(edge->previous->neighbour);
-        return neigh == nullptr ? nullptr : neigh->previous;
+    const auto prev = [](const DirectedEdge::const_pointer_type &edge) {
+        auto weak_neighbour = nonstd::get<DirectedEdge::weak_type>(
+            edge->previous().lock()->neighbour());
+        if (auto neigh = weak_neighbour.lock()) {
+            return neigh->previous().lock();
+        }
+        return DirectedEdge::pointer_type(nullptr);
     };
 
     // walk until a mesh boundary or full circle
-    auto pivot = center.edge->target;
-    for (auto edge = center.edge->next(); edge != nullptr; edge = next(edge)) {
+    auto center_edge = center.edge.lock();
+    auto pivot = center_edge->target();
+    for (auto edge = center_edge->next(); edge; edge = next(edge)) {
         result.push_back(edge);
-        if (edge->target == pivot) {  // full circle
+        if (edge->target() == pivot) {  // full circle
             return result;
         }
     }
 
     // stopped at boundary; check if we need to walk backwards as well
-    if (center.edge->boundary()) {
+    if (center_edge->boundary()) {
         return result;
     }
 
-    pivot = result.back()->target;
-    auto center_back = nonstd::get<DirectedEdge *>(center.edge->neighbour);
-    for (auto edge = center_back->previous; edge != nullptr;
-         edge = prev(edge)) {
-        if (edge->target == pivot) {
+    pivot = result.back()->target();
+    auto center_back
+        = nonstd::get<DirectedEdge::weak_type>(center_edge->neighbour()).lock();
+    for (auto edge = center_back->previous().lock(); edge; edge = prev(edge)) {
+        if (edge->target() == pivot) {
             return result;
         }
         result.push_front(edge);
@@ -75,10 +84,11 @@ catch (const nonstd::bad_variant_access &) {
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
 std::deque<const Node *> adjacent_nodes(
-    const std::deque<DirectedEdge *> &edge_ring)
+    const std::deque<DirectedEdge::pointer_type> &edge_ring)
 {
     auto full_circle = [](const auto &edges) -> bool {
-        return (edges.front()->previous->target) == (edges.back()->target);
+        return (edges.front()->previous().lock()->target())
+            == (edges.back()->target());
     };
 
     auto result = std::deque<const Node *>{};
@@ -87,10 +97,10 @@ std::deque<const Node *> adjacent_nodes(
         std::cbegin(edge_ring),
         std::cend(edge_ring),
         std::back_inserter(result),
-        [](const auto &edge) { return edge->target; });
+        [](const auto &edge) { return edge->target(); });
 
     if (!full_circle(edge_ring)) {  // add the first node explicitly
-        result.push_front(edge_ring.front()->previous->target);
+        result.push_front(edge_ring.front()->previous().lock()->target());
     }
 
     return result;
@@ -104,7 +114,7 @@ std::deque<const Node *> adjacent_nodes(
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
 std::deque<Triangle> adjacent_triangles(
-    const std::deque<DirectedEdge *> &edge_ring)
+    const std::deque<DirectedEdge::pointer_type> &edge_ring)
 {
     auto result = std::deque<Triangle>{};
 
@@ -113,7 +123,7 @@ std::deque<Triangle> adjacent_triangles(
         std::cend(edge_ring),
         std::back_inserter(result),
         [](const auto &edge) {
-            return static_cast<const DirectedEdge *const>(edge)
+            return std::static_pointer_cast<const DirectedEdge>(edge)
                 ->triangle_edges();
         });
     return result;
@@ -126,16 +136,16 @@ std::deque<Triangle> adjacent_triangles(
  * @return Container of edges emanating from the center node.
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
-std::deque<DirectedEdge *> emanating_edges(
-    const std::deque<DirectedEdge *> &edge_ring)
+std::deque<DirectedEdge::pointer_type> emanating_edges(
+    const std::deque<DirectedEdge::pointer_type> &edge_ring)
 {
-    auto result = std::deque<DirectedEdge *>{};
+    auto result = std::deque<DirectedEdge::pointer_type>{};
 
     std::transform(
         std::cbegin(edge_ring),
         std::cend(edge_ring),
         std::back_inserter(result),
-        [](const auto &edge) { return edge->previous; });
+        [](const auto &edge) { return edge->previous().lock(); });
     return result;
 }
 }  // namespace graph

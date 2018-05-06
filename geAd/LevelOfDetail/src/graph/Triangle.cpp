@@ -15,23 +15,20 @@ lod::graph::DetachedTriangle lod::graph::make_triangle(
     const std::array<const Node *, 3> &nodes)
 {
     auto result = DetachedTriangle{};
-    auto previous = static_cast<DirectedEdge *>(nullptr);
+    auto previous = DirectedEdge::pointer_type(nullptr);
 
     std::transform(
         std::cbegin(nodes),
         std::cend(nodes),
         std::begin(result),
         [&previous](const auto &node) {
-            auto edge = std::make_unique<DirectedEdge>();
-            edge->target = node;
-            edge->previous = previous;
-
-            previous = edge.get();
+            auto edge = DirectedEdge::make(node, previous);
+            previous = edge;
             return edge;
         });
 
     // connect the first and last edge to complete the circle
-    result[0]->previous = previous;
+    result[0]->previous() = previous;
 
     return result;
 }

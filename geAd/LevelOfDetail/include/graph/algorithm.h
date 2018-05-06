@@ -24,11 +24,11 @@ struct algorithm_failure : public std::runtime_error {
 };
 
 /// @brief List all edges opposite to center node.
-std::deque<DirectedEdge *> opposite_edges(const Node &center);
+std::deque<DirectedEdge::pointer_type> opposite_edges(const Node &center);
 
 /// @brief List all adjacent nodes in edge order.
 std::deque<const Node *> adjacent_nodes(
-    const std::deque<DirectedEdge *> &edge_ring);
+    const std::deque<DirectedEdge::pointer_type> &edge_ring);
 /** @overload
  * @param[in] center The center node.
  * @return Container of nodes adjacent to the center node.
@@ -41,7 +41,7 @@ inline std::deque<const Node *> adjacent_nodes(const Node &center)
 
 /// @brief List all adjacent triangles in edge order.
 std::deque<Triangle> adjacent_triangles(
-    const std::deque<DirectedEdge *> &edge_ring);
+    const std::deque<DirectedEdge::pointer_type> &edge_ring);
 /** @overload
  * @param[in] center The center node.
  * @return Container of triangles adjacent to the center node.
@@ -53,14 +53,15 @@ inline std::deque<Triangle> adjacent_triangles(const Node &center)
 }
 
 /// @brief List all emanating edges.
-std::deque<DirectedEdge *> emanating_edges(
-    const std::deque<DirectedEdge *> &edge_ring);
+std::deque<DirectedEdge::pointer_type> emanating_edges(
+    const std::deque<DirectedEdge::pointer_type> &edge_ring);
 /** @overload
  * @param[in] center The center node.
  * @return Container of edges emanating from center.
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
-inline std::deque<DirectedEdge *> emanating_edges(const Node &center)
+inline std::deque<DirectedEdge::pointer_type> emanating_edges(
+    const Node &center)
 {
     return emanating_edges(opposite_edges(center));
 }

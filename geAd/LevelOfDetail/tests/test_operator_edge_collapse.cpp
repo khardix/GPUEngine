@@ -27,20 +27,20 @@ lod::graph::Mesh make_mesh()
     auto CZX = make_triangle({&C, &Z, &X});
 
     // neighbours
-    CXY[0]->neighbour = CYZ[1].get();
-    CYZ[1]->neighbour = CXY[0].get();
+    CXY[0]->neighbour() = CYZ[1];
+    CYZ[1]->neighbour() = CXY[0];
 
-    CYZ[0]->neighbour = CZX[1].get();
-    CZX[1]->neighbour = CYZ[0].get();
+    CYZ[0]->neighbour() = CZX[1];
+    CZX[1]->neighbour() = CYZ[0];
 
-    CZX[0]->neighbour = CXY[1].get();
-    CXY[1]->neighbour = CZX[0].get();
+    CZX[0]->neighbour() = CXY[1];
+    CXY[1]->neighbour() = CZX[0];
 
     // emanating edges
-    C.edge = CYZ[1].get();
-    X.edge = CZX[0].get();
-    Y.edge = CXY[0].get();
-    Z.edge = CYZ[0].get();
+    C.edge = CYZ[1];
+    X.edge = CZX[0];
+    Y.edge = CXY[0];
+    Z.edge = CYZ[0];
 
     auto edges = Mesh::EdgeSet{};
     std::move(CXY.begin(), CXY.end(), std::inserter(edges, edges.end()));
@@ -97,11 +97,12 @@ SCENARIO(
         auto       center_it = mesh.nodes().find(center);
         REQUIRE(center_it != mesh.nodes().end());
 
-        auto edge = mesh.edges().find(util::elevate(center_it->edge));
+        auto edge = mesh.edges().find(center_it->edge.lock());
         REQUIRE(edge != mesh.edges().end());
 
-        auto neigh_ptr = nonstd::get<graph::DirectedEdge *>((*edge)->neighbour);
-        auto neigh = mesh.edges().find(util::elevate(neigh_ptr));
+        auto neigh_ptr
+            = nonstd::get<graph::DirectedEdge::weak_type>((*edge)->neighbour());
+        auto neigh = mesh.edges().find(neigh_ptr.lock());
         REQUIRE(neigh != mesh.edges().end());
 
         auto to_boundary = Labeled{"towards boundary", Operation(*edge, 0.f)};
@@ -111,7 +112,8 @@ SCENARIO(
             WHEN("An edge is collapsed " + std::get<std::string>(op))
             {
                 auto &operation = std::get<Operation>(op);
-                auto  origin = *(operation.element().get()->previous->target);
+                auto &origin
+                    = *(operation.element().get()->previous().lock()->target());
                 collapse(mesh, operation);
 
                 THEN("The mesh contains expected number of elements")
@@ -132,9 +134,8 @@ SCENARIO(
                 THEN("All edges are connected")
                 {
                     auto connected = [&mesh](const auto &edge) {
-                        auto cnt
-                            = mesh.edges().count(util::elevate(edge->previous));
-                        return edge->previous != nullptr && cnt > 0;
+                        auto cnt = mesh.edges().count(edge->previous().lock());
+                        return edge->previous().lock() != nullptr && cnt > 0;
                     };
 
                     REQUIRE(std::all_of(
@@ -147,8 +148,7 @@ SCENARIO(
                 THEN("All nodes have valid edge reference")
                 {
                     auto valid_ref = [&mesh](const auto &node) {
-                        auto elevated = util::elevate(node.edge);
-                        return mesh.edges().count(elevated) > 0;
+                        return mesh.edges().count(node.edge.lock()) > 0;
                     };
 
                     for (const auto &node : mesh.nodes()) {

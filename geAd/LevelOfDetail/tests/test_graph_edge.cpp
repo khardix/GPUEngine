@@ -8,10 +8,12 @@ SCENARIO(
 {
     using namespace lod::graph;
 
+    // clang-format off
     auto v_a = Node{}, v_b = Node{}, v_c = Node{};
-    auto prev_a = DirectedEdge{&v_a}, e_a = DirectedEdge{&v_b, &prev_a};  // A→B
-    auto prev_b = DirectedEdge{&v_b}, e_b = DirectedEdge{&v_a, &prev_b};  // B→A
-    auto prev_c = DirectedEdge{&v_c}, e_c = DirectedEdge{&v_a, &prev_c};  // C→A
+    auto prev_a = DirectedEdge::make(&v_a), e_a = DirectedEdge::make(&v_b, prev_a);  // A→B
+    auto prev_b = DirectedEdge::make(&v_b), e_b = DirectedEdge::make(&v_a, prev_b);  // B→A
+    auto prev_c = DirectedEdge::make(&v_c), e_c = DirectedEdge::make(&v_a, prev_c);  // C→A
+    // clang-format on
 
     GIVEN("two identical edges")
     {
@@ -31,10 +33,7 @@ SCENARIO(
             auto lhash = std::hash<UndirectedEdge>{}(lhs);
             auto rhash = std::hash<UndirectedEdge>{}(rhs);
 
-            THEN("hashes are equal")
-            {
-                REQUIRE(lhash == rhash);
-            }
+            THEN("hashes are equal") { REQUIRE(lhash == rhash); }
         }
     }
 
@@ -57,10 +56,7 @@ SCENARIO(
             auto lhash = std::hash<UndirectedEdge>{}(lhs);
             auto rhash = std::hash<UndirectedEdge>{}(rhs);
 
-            THEN("hashes are equal")
-            {
-                REQUIRE(lhash == rhash);
-            }
+            THEN("hashes are equal") { REQUIRE(lhash == rhash); }
         }
     }
 
@@ -83,10 +79,7 @@ SCENARIO(
             auto lhash = std::hash<UndirectedEdge>{}(lhs);
             auto rhash = std::hash<UndirectedEdge>{}(rhs);
 
-            THEN("hashes are different")
-            {
-                REQUIRE(lhash != rhash);
-            }
+            THEN("hashes are different") { REQUIRE(lhash != rhash); }
         }
     }
 }

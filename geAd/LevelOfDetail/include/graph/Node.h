@@ -6,6 +6,7 @@
  */
 
 #include <functional>
+#include <memory>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
@@ -23,8 +24,9 @@ struct Node {
     bool operator!=(const Node &other) const noexcept;
 
     /// Vertex position in model space.
-    position_type         position = {0.f, 0.f, 0.f};
-    mutable DirectedEdge *edge = nullptr;  ///< Arbitrary first outgoing edge.
+    position_type                       position = {0.f, 0.f, 0.f};
+    mutable std::weak_ptr<DirectedEdge> edge
+        = {};  ///< Arbitrary first outgoing edge.
 };
 }  // namespace graph
 }  // namespace lod

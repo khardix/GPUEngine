@@ -22,7 +22,7 @@ namespace graph {
 class Mesh {
 public:
     using NodeSet = std::unordered_set<Node>;
-    using EdgeSet = std::unordered_set<std::shared_ptr<DirectedEdge>>;
+    using EdgeSet = std::unordered_set<DirectedEdge::pointer_type>;
     using EdgeCache = std::unordered_set<UndirectedEdge>;
 
     /// @brief Create graph from prepared sets.
@@ -92,8 +92,8 @@ inline const Mesh::NodeSet &Mesh::container<Node>() const noexcept
     return m_nodes;
 }
 template <>
-inline const Mesh::EdgeSet &Mesh::container<std::shared_ptr<DirectedEdge>>()
-    const noexcept
+inline const Mesh::EdgeSet &Mesh::container<DirectedEdge::pointer_type>() const
+    noexcept
 {
     return m_edges;
 }

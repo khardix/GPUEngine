@@ -16,6 +16,7 @@
 #include <geSG/AttributeDescriptor.h>
 #include <geSG/Mesh.h>
 #include <graph/Mesh.h>
+#include <graph/Triangle.h>
 
 /** Inserts all triangles from original mesh into the graph representation.
  * @param[in] original The mesh to analyze.
@@ -45,58 +46,48 @@ void lod::graph::Mesh::insert(
     using invalid = DirectedEdge::invalid;
 
     // insert nodes
-    auto nodes = std::array<std::reference_wrapper<const Node>, 3>{
-        *(m_nodes.insert(Node{glm::make_vec3(triangle[0])}).first),
-        *(m_nodes.insert(Node{glm::make_vec3(triangle[1])}).first),
-        *(m_nodes.insert(Node{glm::make_vec3(triangle[2])}).first),
+    auto nodes = std::array<const Node *, 3>{
+        &*(m_nodes.insert(Node{glm::make_vec3(triangle[0])}).first),
+        &*(m_nodes.insert(Node{glm::make_vec3(triangle[1])}).first),
+        &*(m_nodes.insert(Node{glm::make_vec3(triangle[2])}).first),
     };
 
     // prepare edges
-    auto edges = std::array<std::unique_ptr<DirectedEdge>, 3>{
-        std::make_unique<DirectedEdge>(),
-        std::make_unique<DirectedEdge>(),
-        std::make_unique<DirectedEdge>(),
-    };
-
-    // connect nodes and edges
-    for (auto source = std::size_t{0}; source < edges.size(); ++source) {
-        auto target = (source + 1) % edges.size();
-
-        // point edges to their adjacent objects
-        edges.at(target)->target = &(nodes.at(target).get());
-        edges.at(target)->previous = edges.at(source).get();
-
-        // add outgoing edge reference if necessary
-        if (nodes.at(source).get().edge == nullptr) {
-            nodes.at(source).get().edge = edges.at(target).get();
+    auto edges = make_triangle(nodes);
+    // attach nodes to edges
+    std::for_each(std::begin(edges), std::end(edges), [](const auto &edge) {
+        if (edge->target()->edge.expired()) {
+            edge->target()->edge = edge->next();
         }
-    }
+    });
 
     // insert edges into the graph
     for (auto &&edge : edges) {
-        auto cached = cache.find(UndirectedEdge(*edge));
+        auto cached = cache.find(UndirectedEdge(edge));
         if (cached != cache.end()) {
-            auto &&opposite = cached->referred();
+            const auto &opposite = cached->referred();
 
             // propagate invalid state
-            if (holds_alternative<invalid>(opposite.neighbour)) {
-                edge->neighbour = opposite.neighbour;
+            if (holds_alternative<invalid>(opposite->neighbour())) {
+                edge->neighbour() = opposite->neighbour();
             }
             // detect too many neighbours
-            else if (get<DirectedEdge *>(opposite.neighbour) != nullptr) {
-                edge->neighbour = opposite.neighbour = invalid::nonmanifold;
+            else if (!get<DirectedEdge::weak_type>(opposite->neighbour())
+                          .expired()) {
+                edge->neighbour() = opposite->neighbour()
+                    = invalid::nonmanifold;
             }
             // connect neighbours
             else {
-                edge->neighbour = &opposite;
-                opposite.neighbour = edge.get();
+                edge->neighbour() = opposite;
+                opposite->neighbour() = edge;
             }
         }
         else {
-            cache.emplace(*edge);
+            cache.emplace(UndirectedEdge(edge));
         }
 
-        m_edges.insert(std::exchange(edge, nullptr));
+        m_edges.insert(edge);
     }
 }
 
@@ -170,8 +161,8 @@ lod::graph::Mesh::operator ge::sg::Mesh() const
     const auto start_pos = raw_pos;
     for (const auto &node : m_nodes) {
         // save index
-        index_map[&node]
-            = std::distance(start_pos, raw_pos) / positions->numComponents;
+        index_map[&node] = static_cast<unsigned>(
+            std::distance(start_pos, raw_pos) / positions->numComponents);
         // copy position data
         raw_pos = std::copy_n(
             glm::value_ptr(node.position), positions->numComponents, raw_pos);
@@ -187,9 +178,9 @@ lod::graph::Mesh::operator ge::sg::Mesh() const
         if (edge_set.count(edge.get()) != 0) {  // skip processed edges
             continue;
         }
-        for (const auto &raw_edge : edge->triangle_edges()) {
-            *(raw_idx++) = index_map.at(raw_edge->target);  // NOLINT
-            edge_set.insert(raw_edge);
+        for (const auto &triangle_edge : edge->triangle_edges()) {
+            *(raw_idx++) = index_map.at(triangle_edge->target());  // NOLINT
+            edge_set.insert(triangle_edge.get());
         }
     }
     result.attributes.push_back(indices);

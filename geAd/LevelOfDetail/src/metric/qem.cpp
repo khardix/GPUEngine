@@ -28,7 +28,7 @@ const glm::vec4 lod::metric::QEM<Tag>::plane(
         std::cbegin(triangle),
         std::cend(triangle),
         std::begin(node_positions),
-        [](const auto &edge) { return &(edge->target->position); });
+        [](const auto &edge) { return &(edge->target()->position); });
 
     const auto &coeff = glm::cross(
         *std::get<1>(node_positions) - *std::get<0>(node_positions),

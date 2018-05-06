@@ -25,16 +25,10 @@ SCENARIO(
             Node{{0.f, 0.f, 1.f}},
         };
 
-        auto edges = std::array<DirectedEdge, 3>{
-            DirectedEdge{&nodes[0]},
-            DirectedEdge{&nodes[1]},
-            DirectedEdge{&nodes[2]},
-        };
-
-        auto triangle = Triangle{
-            edges.data(),
-            edges.data() + 1,
-            edges.data() + 2,
+        auto triangle = std::array<DirectedEdge::const_pointer_type, 3>{
+            DirectedEdge::make(&nodes[0]),
+            DirectedEdge::make(&nodes[1]),
+            DirectedEdge::make(&nodes[2]),
         };
 
         WHEN("A plane vector is calculated")
@@ -56,28 +50,28 @@ SCENARIO(
         auto Y = Node{{0.f, 1.f, 0.f}};
         auto Z = Node{{0.f, 0.f, 1.f}};
 
-        auto CX = DirectedEdge{&X, nullptr};
-        auto XY = DirectedEdge{&Y, &CX};
-        auto YC = DirectedEdge{&C, &XY};
-        CX.previous = &YC;
+        auto CX = DirectedEdge::make(&X);
+        auto XY = DirectedEdge::make(&Y, CX);
+        auto YC = DirectedEdge::make(&C, XY);
+        CX->previous() = YC;
 
-        auto CY = DirectedEdge{&Y, nullptr};
-        auto YZ = DirectedEdge{&Z, &CY};
-        auto ZC = DirectedEdge{&C, &YZ};
-        CY.previous = &ZC;
+        auto CY = DirectedEdge::make(&Y);
+        auto YZ = DirectedEdge::make(&Z, CY);
+        auto ZC = DirectedEdge::make(&C, YZ);
+        CY->previous() = ZC;
 
-        auto CZ = DirectedEdge{&Z, nullptr};
-        auto ZX = DirectedEdge{&X, &CZ};
-        auto XC = DirectedEdge{&C, &ZX};
-        CZ.previous = &XC;
+        auto CZ = DirectedEdge::make(&Z);
+        auto ZX = DirectedEdge::make(&X, CZ);
+        auto XC = DirectedEdge::make(&C, ZX);
+        CZ->previous() = XC;
 
         // clang-format off
-        CX.neighbour = &XC; XC.neighbour = &CX;
-        CY.neighbour = &YC; YC.neighbour = &CY;
-        CZ.neighbour = &ZC; ZC.neighbour = &CZ;
+        CX->neighbour() = XC; XC->neighbour() = CX;
+        CY->neighbour() = YC; YC->neighbour() = CY;
+        CZ->neighbour() = ZC; ZC->neighbour() = CZ;
         // clang-format on
 
-        C.edge = &CX;
+        C.edge = CX;
 
         WHEN("A quadric is calculated")
         {
@@ -127,10 +121,7 @@ SCENARIO(
             const auto error
                 = QEM<FullEdgeTag>::error(quadric, glm::vec3{1.f, 1.f, 1.f});
 
-            THEN("It has the expected size")
-            {
-                REQUIRE(error == 3.f);
-            }
+            THEN("It has the expected size") { REQUIRE(error == 3.f); }
         }
     }
 }

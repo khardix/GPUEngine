@@ -30,17 +30,20 @@ using operation::HalfEdgeTag;
  * returns the neighbour of the other one (== valid neighbour).
  * If both edges were boundary, returns nullptr.
  */
-graph::DirectedEdge *connect_neighbours(
-    graph::DirectedEdge *const lhs, graph::DirectedEdge *const rhs)
+graph::DirectedEdge::pointer_type connect_neighbours(
+    const graph::DirectedEdge::pointer_type &lhs,
+    const graph::DirectedEdge::pointer_type &rhs)
 {
-    auto lneigh = nonstd::get<graph::DirectedEdge *>(lhs->neighbour);
-    auto rneigh = nonstd::get<graph::DirectedEdge *>(rhs->neighbour);
+    using lod::graph::DirectedEdge;
+
+    auto lneigh = nonstd::get<DirectedEdge::weak_type>(lhs->neighbour()).lock();
+    auto rneigh = nonstd::get<DirectedEdge::weak_type>(rhs->neighbour()).lock();
 
     if (lneigh != nullptr) {
-        lneigh->neighbour = rneigh;
+        lneigh->neighbour() = rneigh;
     }
     if (rneigh != nullptr) {
-        rneigh->neighbour = lneigh;
+        rneigh->neighbour() = lneigh;
     }
 
     return lneigh == nullptr ? rneigh : lneigh;
@@ -59,8 +62,8 @@ bool common::EdgeCollapse::would_fold(
     const graph::Node &        current,
     const graph::Node &        candidate)
 {
-    const auto &origin_pos = opposite.previous->target->position;
-    const auto &target_pos = opposite.target->position;
+    const auto &origin_pos = opposite.previous().lock()->target()->position;
+    const auto &target_pos = opposite.target()->position;
     const auto &current_pos = current.position;
     const auto &candidate_pos = candidate.position;
 
@@ -88,8 +91,8 @@ bool common::EdgeCollapse::nonmanifold_collapse(
     using trans = std::pair<const Node *, Mesh::NodeSet &>;
 
     auto origin_nodes = Mesh::NodeSet{}, target_nodes = Mesh::NodeSet{};
-    for (auto &&t : {trans{collapsed.previous->target, origin_nodes},
-                     trans{collapsed.target, target_nodes}}) {
+    for (auto &&t : {trans{collapsed.previous().lock()->target(), origin_nodes},
+                     trans{collapsed.target(), target_nodes}}) {
         auto container = adjacent_nodes(*t.first);
         std::transform(
             std::begin(container),
@@ -120,37 +123,35 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
     auto to_delete = Mesh::EdgeSet{};
 
     const auto collapsed_edge = operation.element().get();
-    const auto target_node = collapsed_edge->target;
-    const auto origin_node = collapsed_edge->previous->target;
+    const auto target_node = collapsed_edge->target();
+    const auto origin_node = collapsed_edge->previous().lock()->target();
 
     auto       edge_ring = opposite_edges(*origin_node);
     const auto edge_ring_complete
-        = edge_ring.front()->previous->target == edge_ring.back()->target;
+        = (edge_ring.front()->previous().lock()->target()
+           == edge_ring.back()->target());
 
     /** Marks all edges from a triangle for deletion,
      * and remove them from nodes that refer to them.
      */
     auto mark_triangle_deleted = [&mesh_edges, &to_delete](auto &&start_edge) {
         for (auto &&edge : start_edge->triangle_edges()) {
-            if (edge->previous->target->edge == edge) {
-                edge->previous->target->edge = nullptr;
+            auto previous = edge->previous().lock();
+            if (previous->target()->edge.lock() == edge) {
+                previous->target()->edge.reset();
             }
 
-            auto edge_iter = mesh_edges.find(util::elevate(edge));
-            if (edge_iter == mesh_edges.end()) {
-                continue;
-            }
-            to_delete.insert(*edge_iter);
+            to_delete.insert(edge);
         }
     };
 
     /// This triangle will be replaced by previous one in the ring.
     auto replaced_by_prev = [&target_node](const auto &ring_edge) -> bool {
-        return ring_edge->target == target_node;
+        return ring_edge->target() == target_node;
     };
     /// This triangle will be replaced by next one in the ring.
     auto replaced_by_next = [&target_node](const auto &ring_edge) -> bool {
-        return ring_edge->previous->target == target_node;
+        return ring_edge->previous().lock()->target() == target_node;
     };
 
     // Make preliminary checks for operation validity
@@ -171,16 +172,15 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
 
     // Apply the edge adjustments
     for (auto &&opposite : edge_ring) {
-        // replaced by previous triangle
-        if (opposite->target == target_node) {
+        if (replaced_by_prev(opposite)) {
             mark_triangle_deleted(opposite);
             // replace deleted edge with valid neighbour
-            opposite = connect_neighbours(opposite->previous, opposite);
+            opposite
+                = connect_neighbours(opposite->previous().lock(), opposite);
             continue;
         }
 
-        // replaced by next triangle
-        if (opposite->previous->target == target_node) {
+        if (replaced_by_next(opposite)) {
             mark_triangle_deleted(opposite);
             // replace deleted edge with valid neighbour
             opposite = connect_neighbours(opposite->next(), opposite);
@@ -189,10 +189,10 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
 
         // connect outgoing edge to new target
         auto next_edge = opposite->next();
-        next_edge->target = target_node;
+        next_edge->target() = target_node;
 
         // mark all edges as modified
-        modified.insert({next_edge, opposite, opposite->previous});
+        modified.insert({next_edge, opposite, opposite->previous().lock()});
     }
 
     // fix nodes with deleted references
@@ -201,15 +201,15 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
             throw std::runtime_error("Non-manifold collapse!");
         }
 
-        auto node = opposite->target;
-        if (node->edge == nullptr) {
+        auto &node = opposite->target();
+        if (node->edge.expired()) {
             node->edge = opposite->next();
         }
     }
 
     if (!edge_ring_complete) {
-        auto &first_node = edge_ring.front()->previous->target;
-        if (first_node->edge == nullptr) {
+        auto &first_node = edge_ring.front()->previous().lock()->target();
+        if (first_node->edge.expired()) {
             first_node->edge = edge_ring.front();
         }
     }

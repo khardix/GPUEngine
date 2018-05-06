@@ -35,7 +35,7 @@ class EdgeCollapse<operation::HalfEdgeTag> : common::EdgeCollapse {
 public:
     using Tag = operation::HalfEdgeTag;
     using operation_type = operation::Simple<Tag::element_type>;
-    using result_type = std::unordered_set<graph::DirectedEdge *>;
+    using result_type = std::unordered_set<graph::DirectedEdge::pointer_type>;
 
     /// @brief Apply the operator to a mesh element.
     result_type operator()(graph::Mesh &mesh, const operation_type &operation);

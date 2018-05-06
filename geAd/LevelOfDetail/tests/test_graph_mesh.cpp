@@ -87,7 +87,7 @@ SCENARIO(
                 auto begin = std::cbegin(graph_mesh.nodes());
                 auto end = std::cend(graph_mesh.nodes());
                 auto predicate = [](const Mesh::NodeSet::value_type &node) {
-                    return node.edge != nullptr;
+                    return !node.edge.expired();
                 };
 
                 REQUIRE(std::all_of(begin, end, predicate));
@@ -103,10 +103,12 @@ SCENARIO(
                 auto begin = graph_mesh.edges().cbegin();
                 auto end = graph_mesh.edges().cend();
                 auto compare = [](const Mesh::EdgeSet::value_type &edge) {
-                    if (!holds_alternative<DirectedEdge *>(edge->neighbour)) {
+                    if (!holds_alternative<DirectedEdge::weak_type>(
+                            edge->neighbour())) {
                         return false;
                     }
-                    if (get<DirectedEdge *>(edge->neighbour) == nullptr) {
+                    if (get<DirectedEdge::weak_type>(edge->neighbour())
+                            .expired()) {
                         return false;
                     }
 
@@ -121,9 +123,15 @@ SCENARIO(
                 auto begin = std::cbegin(graph_mesh.edges());
                 auto end = std::cend(graph_mesh.edges());
                 auto predicate = [](const Mesh::EdgeSet::value_type &edge) {
-                    return (edge->previous != nullptr)
-                        && (edge->previous->previous != nullptr)
-                        && (edge->previous->previous->previous == edge.get());
+                    return (!edge->previous().expired())
+                        && (!edge->previous().lock()->previous().expired())
+                        && (edge->previous()
+                                .lock()
+                                ->previous()
+                                .lock()
+                                ->previous()
+                                .lock()
+                            == edge);
                 };
 
                 REQUIRE(std::all_of(begin, end, predicate));

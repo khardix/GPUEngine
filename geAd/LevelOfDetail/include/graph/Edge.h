@@ -7,6 +7,7 @@
 
 #include <array>
 #include <functional>
+#include <memory>
 #include <utility>
 
 // silence variant warning that should have no effect on C++11 and later
@@ -22,33 +23,62 @@ namespace graph {
 struct Node;
 
 /// @brief Half-edge with adjacency information.
-struct DirectedEdge {
+class DirectedEdge : public std::enable_shared_from_this<DirectedEdge> {
+public:
     /// @brief Mesh strucutre error indicators.
     enum class invalid {
         nonmanifold  ///< Too many triangles share an edge.
     };
 
+    /// @brief Owning reference to another edge.
+    using pointer_type = std::shared_ptr<DirectedEdge>;
+    using const_pointer_type = std::shared_ptr<const DirectedEdge>;
+    /// @brief Non-owning pointer to another edge.
+    using weak_type = std::weak_ptr<DirectedEdge>;
+    using const_weak_type = std::weak_ptr<const DirectedEdge>;
     /// @brief Possibly invalid edge reference.
-    using MaybeEdge = nonstd::variant<DirectedEdge *, invalid>;
+    using MaybeEdge = nonstd::variant<weak_type, invalid>;
 
-    explicit DirectedEdge(
-        const Node *  target = nullptr,
-        DirectedEdge *previous = nullptr,
-        MaybeEdge     neighbour = nullptr) noexcept;
+    /// @brief Enforce shared pointer creation.
+    template <typename... Args>
+    static pointer_type make(Args &&... args);
+    /// @brief "Cast" the edge to shared pointer.
+    pointer_type       as_shared() { return shared_from_this(); }
+    const_pointer_type as_shared() const { return shared_from_this(); }
+    /// @brief "Cast" the edge to weak pointer.
+    weak_type       as_weak() { return shared_from_this(); }
+    const_weak_type as_weak() const { return shared_from_this(); }
+
+    /// @brief Access stored target.
+    const Node *&      target() { return m_target; }
+    const Node *const &target() const { return m_target; }
+    /// @brief Access stored previous edge.
+    weak_type &      previous() { return m_previous; }
+    const weak_type &previous() const { return m_previous; }
+    /// @brief Access stored neighbour.
+    MaybeEdge &      neighbour() { return m_neighbour; }
+    const MaybeEdge &neighbour() const { return m_neighbour; }
 
     /// @brief Indicates boundary edge.
     bool boundary() const noexcept;
     /// @brief Indicates manifold edge.
     bool manifold() const noexcept;
     /// @brief Calculate next edge in a triangle.
-    DirectedEdge *next() const noexcept;
+    pointer_type next() const noexcept;
     /// @brief Extract all edges from own triangle.
-    std::array<DirectedEdge *, 3>       triangle_edges();
-    std::array<const DirectedEdge *, 3> triangle_edges() const;
+    std::array<pointer_type, 3>       triangle_edges();
+    std::array<const_pointer_type, 3> triangle_edges() const;
 
-    const Node *  target = nullptr;     ///< Target vertex.
-    DirectedEdge *previous = nullptr;   ///< Previous edge in polygon.
-    MaybeEdge     neighbour = nullptr;  ///< Opposite direction half-edge.
+protected:
+    explicit DirectedEdge(
+        const Node *target = nullptr,
+        weak_type   previous = {},
+        MaybeEdge   neighbour = weak_type{}) noexcept;
+
+private:
+    const Node *m_target = nullptr;         ///< Target vertex.
+    weak_type   m_previous = {};            ///< Previous edge in polygon.
+    MaybeEdge   m_neighbour = weak_type{};  ///< Opposite direction half-edge.
 };
 
 /// @brief Hashable canonical representation of an edge.
@@ -57,19 +87,19 @@ public:
     friend struct std::hash<UndirectedEdge>;
 
     /// @brief Reference existing directed edge.
-    explicit UndirectedEdge(DirectedEdge &edge) noexcept;
+    explicit UndirectedEdge(DirectedEdge::pointer_type edge) noexcept;
 
     bool operator==(const UndirectedEdge &other) const noexcept;
     bool operator!=(const UndirectedEdge &other) const noexcept;
 
     /// @brief Access referred half-edge
-    DirectedEdge &referred() const;
+    const DirectedEdge::pointer_type &referred() const;
 
     /// @brief Extract boundary nodes in canonical order.
     std::pair<const Node *, const Node *> nodes() const;
 
 private:
-    std::reference_wrapper<DirectedEdge> m_edge;  ///< The wrapped half-edge.
+    DirectedEdge::pointer_type m_edge;  ///< The wrapped half-edge.
 };
 }  // namespace graph
 }  // namespace lod
@@ -93,39 +123,46 @@ struct hash<lod::graph::UndirectedEdge> {
 };
 }  // namespace std
 
-/// @note Needed for std::make_{unique,shared}<DirectedEdge>().
-inline lod::graph::DirectedEdge::DirectedEdge(
-    const Node *target, DirectedEdge *previous, MaybeEdge neighbour) noexcept
-    : target(std::move_if_noexcept(target)),
-      previous(std::move_if_noexcept(previous)),
-      neighbour(std::move_if_noexcept(neighbour))
+namespace lod {
+namespace graph {
+inline DirectedEdge::DirectedEdge(
+    const Node *target, weak_type previous, MaybeEdge neighbour) noexcept
+    : m_target(std::move_if_noexcept(target)),
+      m_previous(std::move_if_noexcept(previous)),
+      m_neighbour(std::move_if_noexcept(neighbour))
 {
+}
+
+template <typename... Args>
+inline auto DirectedEdge::make(Args &&... args) -> pointer_type
+{
+    return pointer_type{new DirectedEdge(std::forward<Args>(args)...)};
 }
 
 /// @return True if the edge is on a mesh boundary, false otherwise.
-inline bool lod::graph::DirectedEdge::boundary() const noexcept
+inline bool DirectedEdge::boundary() const noexcept
 {
-    return nonstd::holds_alternative<DirectedEdge *>(neighbour)
-        && nonstd::get<DirectedEdge *>(neighbour) == nullptr;
+    return nonstd::holds_alternative<weak_type>(m_neighbour)
+        && nonstd::get<weak_type>(m_neighbour).expired();
 }
 
 /// @return True if the edge is manifold, false otherwise.
-inline bool lod::graph::DirectedEdge::manifold() const noexcept
+inline bool DirectedEdge::manifold() const noexcept
 {
-    return !nonstd::holds_alternative<invalid>(neighbour)
-        || nonstd::get<invalid>(neighbour) != invalid::nonmanifold;
+    return !nonstd::holds_alternative<invalid>(m_neighbour)
+        || nonstd::get<invalid>(m_neighbour) != invalid::nonmanifold;
 }
 
 /** Find an edge where previous == this.
  * @return Pointer to the next edge, or nullptr if the cycle is broken.
  */
-inline lod::graph::DirectedEdge *lod::graph::DirectedEdge::next() const noexcept
+inline auto DirectedEdge::next() const noexcept -> pointer_type
 {
-    if (previous == nullptr) {
-        return nullptr;
+    if (auto previous = m_previous.lock()) {
+        return previous->previous().lock();
     }
     else {
-        return previous->previous;
+        return nullptr;
     }
 }
 
@@ -133,30 +170,33 @@ inline lod::graph::DirectedEdge *lod::graph::DirectedEdge::next() const noexcept
  * @return All edges in own triangle in correct order.
  * @throws std::runtime_error On unconnected triangle.
  */
-inline std::array<const lod::graph::DirectedEdge *, 3>
-lod::graph::DirectedEdge::triangle_edges() const
+inline auto DirectedEdge::triangle_edges() const
+    -> std::array<const_pointer_type, 3>
 {
-    if (previous == nullptr || previous->previous == nullptr) {
-        throw std::runtime_error("Unconnected edges!");
+    auto incoming = m_previous.lock();
+    auto outgoing = next();
+    if (incoming && outgoing) {
+        return {shared_from_this(), outgoing, incoming};
     }
-    return {this, previous->previous, previous};
+    throw std::runtime_error("Unconnected edges!");
 }
 /// @overload
-inline std::array<lod::graph::DirectedEdge *, 3>
-lod::graph::DirectedEdge::triangle_edges()
+inline auto DirectedEdge::triangle_edges() -> std::array<pointer_type, 3>
 {
-    if (previous == nullptr || previous->previous == nullptr) {
-        throw std::runtime_error("Unconnected edges!");
+    auto incoming = m_previous.lock();
+    auto outgoing = next();
+    if (incoming && outgoing) {
+        return {shared_from_this(), outgoing, incoming};
     }
-    return {this, previous->previous, previous};
+    throw std::runtime_error("Unconnected edges!");
 }
 
 /** Wraps a reference to existing edge,
  * and provides comparison and hash semantic for the corresponding full edge.
  * @param[in] edge Reference to existing directed edge.
  */
-inline lod::graph::UndirectedEdge::UndirectedEdge(DirectedEdge &edge) noexcept
-    : m_edge(std::ref(edge))
+inline UndirectedEdge::UndirectedEdge(DirectedEdge::pointer_type edge) noexcept
+    : m_edge(std::move(edge))
 {
 }
 
@@ -164,27 +204,24 @@ inline lod::graph::UndirectedEdge::UndirectedEdge(DirectedEdge &edge) noexcept
  * @returns Edge's nodes in memory order.
  * @throws std::runtime_error Edge is not part of a triangle.
  */
-inline std::pair<const lod::graph::Node *, const lod::graph::Node *>
-lod::graph::UndirectedEdge::nodes() const
+inline std::pair<const Node *, const Node *> UndirectedEdge::nodes() const
 {
-    const auto &edge = m_edge.get();
-    if (edge.previous == nullptr) {
-        throw std::runtime_error("Unconnected edge!");
+    if (auto prev = m_edge->previous().lock()) {
+        return std::make_pair(
+            std::min(m_edge->target(), prev->target()),
+            std::max(m_edge->target(), prev->target()));
     }
-
-    return std::make_pair(
-        std::min(edge.target, edge.previous->target),
-        std::max(edge.target, edge.previous->target));
+    throw std::runtime_error("Unconnected edge!");
 }
 
 /** All edges between the same two nodes are equal. */
-inline bool lod::graph::UndirectedEdge::operator==(
-    const UndirectedEdge &other) const noexcept
+inline bool UndirectedEdge::operator==(const UndirectedEdge &other) const
+    noexcept
 {
     return nodes() == other.nodes();
 }
-inline bool lod::graph::UndirectedEdge::operator!=(
-    const UndirectedEdge &other) const noexcept
+inline bool UndirectedEdge::operator!=(const UndirectedEdge &other) const
+    noexcept
 {
     return !(*this == other);
 }
@@ -192,9 +229,10 @@ inline bool lod::graph::UndirectedEdge::operator!=(
 /**
  * @returns Referred half-edge reference.
  */
-inline lod::graph::DirectedEdge &lod::graph::UndirectedEdge::referred() const
+inline const DirectedEdge::pointer_type &UndirectedEdge::referred() const
 {
-    return m_edge.get();
+    return m_edge;
 }
-
+}  // namespace graph
+}  // namespace lod
 #endif /* end of include guard: EDGE_H_HRCWE1XD */
