@@ -80,6 +80,9 @@ public:
     explicit operator bool() const noexcept;
     /// @brief Compare operations.
     bool operator<(const Simple &other) const noexcept;
+    bool operator<=(const Simple &other) const noexcept;
+    bool operator>(const Simple &other) const noexcept;
+    bool operator>=(const Simple &other) const noexcept;
     bool operator==(const Simple &other) const noexcept;
     bool operator!=(const Simple &other) const noexcept;
     /// @brief Compare cost of operation.
@@ -176,6 +179,27 @@ bool Simple<Element, ErrorType>::operator<(
     const Simple<Element, ErrorType> &other) const noexcept
 {
     return m_cost < other.m_cost;
+}
+
+template <typename Element, typename ErrorType>
+bool Simple<Element, ErrorType>::operator<=(
+    const Simple<Element, ErrorType> &other) const noexcept
+{
+    return operator<(other) || operator==(other);
+}
+
+template <typename Element, typename ErrorType>
+bool Simple<Element, ErrorType>::operator>(
+    const Simple<Element, ErrorType> &other) const noexcept
+{
+    return !operator<=(other);
+}
+
+template <typename Element, typename ErrorType>
+bool Simple<Element, ErrorType>::operator>=(
+    const Simple<Element, ErrorType> &other) const noexcept
+{
+    return !operator<(other);
 }
 
 template <typename Element, typename ErrorType>
