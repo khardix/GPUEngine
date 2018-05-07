@@ -38,7 +38,8 @@ public:
     using result_type = graph::Mesh::EdgeSet;
 
     /// @brief Apply the operator to a mesh element.
-    result_type operator()(graph::Mesh &mesh, const operation_type &operation);
+    result_type operator()(
+        graph::Mesh &mesh, const operation_type &operation) const;
 
     /// @brief Check for problematic collapse on a mesh boundary
     static bool boundary_collapse(const graph::DirectedEdge &collapsed);

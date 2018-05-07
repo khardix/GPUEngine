@@ -135,7 +135,8 @@ bool EdgeCollapse<HalfEdgeTag>::boundary_collapse(
  * @todo If the operation cannot be safely applied, it is silently skipped.
  */
 auto EdgeCollapse<HalfEdgeTag>::operator()(
-    graph::Mesh &mesh, const operation_type &operation) -> result_type try {
+    graph::Mesh &mesh, const operation_type &operation) const -> result_type
+    try {
     using namespace lod::graph;
 
     auto &mesh_edges = mesh.edges();

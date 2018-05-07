@@ -21,16 +21,18 @@
 /** Inserts all triangles from original mesh into the graph representation.
  * @param[in] original The mesh to analyze.
  */
-lod::graph::Mesh::Mesh(
-    /*const*/ ge::sg::Mesh &original)  // FIXME: Iterators not taking const
+lod::graph::Mesh::Mesh(const ge::sg::Mesh &original)
 {
     using namespace std::placeholders;
 
     auto edge_cache = EdgeCache{};
     auto processor = std::bind(&Mesh::insert, this, _1, std::ref(edge_cache));
 
-    auto begin = ge::sg::MeshPositionIteratorBegin(&original);
-    auto end = ge::sg::MeshPositionIteratorEnd(&original);
+    // FIXME: Iterators not taking const
+    auto begin = ge::sg::MeshPositionIteratorBegin(
+        &const_cast<ge::sg::Mesh &>(original));  // NOLINT
+    auto end = ge::sg::MeshPositionIteratorEnd(
+        &const_cast<ge::sg::Mesh &>(original));  // NOLINT
     std::for_each(begin, end, processor);
 }
 

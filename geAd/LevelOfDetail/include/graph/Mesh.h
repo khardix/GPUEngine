@@ -28,7 +28,7 @@ public:
     /// @brief Create graph from prepared sets.
     explicit Mesh(NodeSet &&nodes, EdgeSet &&edges);
     /// @brief Create graph from existing mesh.
-    explicit Mesh(/*const*/ ge::sg::Mesh &original);
+    explicit Mesh(const ge::sg::Mesh &original);
 
     Mesh(const Mesh &) = delete;
     Mesh(Mesh &&) = default;

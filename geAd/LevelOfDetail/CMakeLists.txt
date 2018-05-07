@@ -43,7 +43,8 @@ add_executable(${PROJECT_NAME}TestSuite
     tests/test_utility_set_operation.cpp
     tests/test_graph_node.cpp tests/test_graph_edge.cpp tests/test_graph_mesh.cpp tests/test_graph_algorithm.cpp
     tests/test_metric_qem.cpp
-    tests/test_operator_edge_collapse.cpp)
+    tests/test_operator_edge_collapse.cpp
+    tests/test_algorithm_lazy_selection.cpp)
 target_compile_features(${PROJECT_NAME}TestSuite PRIVATE cxx_std_14)
 target_link_libraries(${PROJECT_NAME}TestSuite ${PROJECT_NAME})
 add_test(test_lod_addon ${PROJECT_NAME}TestSuite)
