@@ -18,6 +18,7 @@
 
 namespace lod {
 namespace oper {
+using operation::FullEdgeTag;
 using operation::HalfEdgeTag;
 
 /** Connects neighbours of two edges to each other.
@@ -47,6 +48,25 @@ graph::DirectedEdge::pointer_type connect_neighbours(
     }
 
     return lneigh == nullptr ? rneigh : lneigh;
+}
+
+/** Marks edges for deletion:
+ * 1. Resets reference on nodes that point to them.
+ * 2. Insert edges to trash set.
+ * @param[in,out] trash The set to insert deleted edges to.
+ * @param[in] triangle The triangle to delete.
+ */
+void mark_triangle_deleted(
+    graph::Mesh::EdgeSet &trash, const graph::DetachedTriangle &triangle)
+{
+    for (const auto &edge : triangle) {
+        auto previous = edge->previous().lock();
+        if (previous->target()->edge.lock() == edge) {
+            previous->target()->edge.reset();
+        }
+
+        trash.insert(edge);
+    }
 }
 
 /** Checks for possible folds in mesh by measuring the angle of normal vectors
@@ -127,6 +147,31 @@ bool EdgeCollapse<HalfEdgeTag>::boundary_collapse(
         });
 }
 
+/** Half-edge collapse should not move original mesh border.
+ * It can result in degenerated triangles,
+ * inter-mesh discontinuity and similar problems.
+ * @param[in] collapsed The edge to be collapsed.
+ * @return True if the collapse would move a boundary edge.
+ */
+bool EdgeCollapse<FullEdgeTag>::boundary_collapse(
+    const graph::DirectedEdge &collapsed)
+{
+    using namespace lod::graph;
+
+    if (collapsed.boundary()) {
+        return true;
+    }
+
+    auto tgt_edges = emanating_edges(*collapsed.target());
+    auto org_edges = emanating_edges(*collapsed.previous().lock()->target());
+    auto is_boundary = [](const auto &edge) { return edge->boundary(); };
+
+    return std::any_of(
+               std::cbegin(tgt_edges), std::cend(tgt_edges), is_boundary)
+        || std::any_of(
+               std::cbegin(org_edges), std::cend(org_edges), is_boundary);
+}
+
 /** Applies the operator to the mesh.
  * @param mesh The mesh to be modified.
  * @param operation The operation to perform.
@@ -153,20 +198,6 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
         = (edge_ring.front()->previous().lock()->target()
            == edge_ring.back()->target());
 
-    /** Marks all edges from a triangle for deletion,
-     * and remove them from nodes that refer to them.
-     */
-    auto mark_triangle_deleted = [&mesh_edges, &to_delete](auto &&start_edge) {
-        for (auto &&edge : start_edge->triangle_edges()) {
-            auto previous = edge->previous().lock();
-            if (previous->target()->edge.lock() == edge) {
-                previous->target()->edge.reset();
-            }
-
-            to_delete.insert(edge);
-        }
-    };
-
     /// This triangle will be replaced by previous one in the ring.
     auto replaced_by_prev = [&target_node](const auto &ring_edge) -> bool {
         return ring_edge->target() == target_node;
@@ -178,25 +209,19 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
 
     // Make preliminary checks for operation validity
     if (nonmanifold_collapse(*collapsed_edge)
-        || boundary_collapse(*collapsed_edge)) {
-        return modified;
-    }
-
-    auto possible_fold = std::any_of(
-        std::cbegin(edge_ring), std::cend(edge_ring), [&](const auto &edge) {
-            if (replaced_by_prev(edge) || replaced_by_next(edge)) {
-                return false;
-            }
-            return would_fold(*edge, *origin_node, *target_node);
-        });
-    if (possible_fold) {
+        || boundary_collapse(*collapsed_edge)
+        || would_fold(
+               std::cbegin(edge_ring),
+               std::cend(edge_ring),
+               *origin_node,
+               *target_node)) {
         return modified;
     }
 
     // Apply the edge adjustments
     for (auto &&opposite : edge_ring) {
         if (replaced_by_prev(opposite)) {
-            mark_triangle_deleted(opposite);
+            mark_triangle_deleted(to_delete, opposite->triangle_edges());
             // replace deleted edge with valid neighbour
             opposite
                 = connect_neighbours(opposite->previous().lock(), opposite);
@@ -204,7 +229,7 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
         }
 
         if (replaced_by_next(opposite)) {
-            mark_triangle_deleted(opposite);
+            mark_triangle_deleted(to_delete, opposite->triangle_edges());
             // replace deleted edge with valid neighbour
             opposite = connect_neighbours(opposite->next(), opposite);
             continue;
@@ -246,10 +271,104 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
     return modified;
 }
 catch (const nonstd::bad_variant_access &) {
-    auto message = graph::algorithm_failure("Non-manifold edge collapse!");
+    auto message = graph::algorithm_failure("Non-manifold half-edge collapse!");
+    std::throw_with_nested(message);
+}
+
+/** Applies the operator to the mesh.
+ * @param mesh The mesh to be modified.
+ * @param operation The operation to perform.
+ * @returns Set of elements influenced by the operation.
+ * @throws graph::algorithm_failure On encounter with non-manifold edge.
+ * @todo If the operation cannot be safely applied, it is silently skipped.
+ */
+auto EdgeCollapse<FullEdgeTag>::operator()(
+    graph::Mesh &mesh, const operation_type &operation) const -> result_type
+    try {
+    using namespace lod::graph;
+
+    auto modified = result_type{};
+    auto to_delete = Mesh::EdgeSet{};
+
+    auto collapsed = operation.element().get();
+    auto opposite
+        = nonstd::get<DirectedEdge::weak_type>(collapsed->neighbour()).lock();
+    auto candidate = Node{operation.position_hint()};
+
+    const auto collapsed_triangle = collapsed->triangle_edges();
+    const auto opposite_triangle = opposite->triangle_edges();
+
+    /// Make an edge ring without edges touching the other node.
+    auto partial_ring = [](const auto &center_edge) {
+        const auto &target = center_edge->target();
+        const auto &origin = center_edge->previous().lock()->target();
+
+        auto ring = opposite_edges(*origin);
+        auto new_end = std::remove_if(
+            std::begin(ring), std::end(ring), [&](const auto &edge) {
+                return edge->target() == target
+                    || edge->previous().lock()->target() == target;
+            });
+        ring.erase(new_end, std::end(ring));
+
+        return ring;
+    };
+
+    // preliminary checks of operation validity
+    if (nonmanifold_collapse(*collapsed) || boundary_collapse(*collapsed)) {
+        return modified;
+    }
+    for (const auto &edge : {collapsed, opposite}) {
+        auto ring = partial_ring(edge);
+        auto fold = would_fold(
+            std::cbegin(ring), std::cend(ring), *edge->target(), candidate);
+        if (fold) {
+            return modified;
+        }
+    }
+
+    // Insert and connect the candidate
+    const auto &new_node = *mesh.nodes().insert(std::move(candidate)).first;
+    for (const auto &triangle : {collapsed_triangle, opposite_triangle}) {
+        connect_neighbours(triangle[1], triangle[2]);
+
+        if (new_node.edge.expired()) {
+            auto outgoing
+                = nonstd::get<DirectedEdge::weak_type>(triangle[2]->neighbour())
+                      .lock();
+
+            if (outgoing) {
+                new_node.edge = outgoing;
+            }
+        }
+
+        mark_triangle_deleted(to_delete, triangle);
+    }
+
+    // Adjust the surroundings
+    for (const auto &edge : emanating_edges(new_node)) {
+        edge->next()->target() = std::addressof(new_node);
+        if (edge->target()->edge.expired()) {
+            edge->target()->edge = edge->next();
+        }
+        modified.insert({edge, edge->next(), edge->previous().lock()});
+    }
+
+    // Drop nodes and edges
+    mesh.nodes().erase(*collapsed->target());
+    mesh.nodes().erase(*opposite->target());
+    for (auto &&edge : to_delete) {
+        mesh.edges().erase(edge);
+    }
+
+    return modified;
+}
+catch (const nonstd::bad_variant_access &) {
+    auto message = graph::algorithm_failure("Non-manifold full-edge collapse!");
     std::throw_with_nested(message);
 }
 
 template class EdgeCollapse<HalfEdgeTag>;
+template class EdgeCollapse<FullEdgeTag>;
 }  // namespace oper
 }  // namespace lod
