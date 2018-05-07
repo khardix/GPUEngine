@@ -134,111 +134,120 @@ private:
 // Inline and template members
 namespace operation {
 template <typename Element>
-auto ElementPointer<Element>::get() const noexcept -> type &
+inline auto ElementPointer<Element>::get() const noexcept -> type &
 {
     return *m_ptr;
 }
 
 template <typename Element>
-bool ElementPointer<Element>::valid() const noexcept
+inline bool ElementPointer<Element>::valid() const noexcept
 {
     return m_ptr != nullptr;
 }
 
 template <typename Element>
-auto ElementPointer<std::shared_ptr<Element>>::get() const noexcept -> type
+inline auto ElementPointer<std::shared_ptr<Element>>::get() const noexcept
+    -> type
 {
     return m_ptr.lock();
 }
 
 template <typename Element>
-bool ElementPointer<std::shared_ptr<Element>>::valid() const noexcept
+inline bool ElementPointer<std::shared_ptr<Element>>::valid() const noexcept
 {
     return !m_ptr.expired();
 }
 
 template <typename Element, typename ErrorType>
-Simple<Element, ErrorType>::Simple(
+inline Simple<Element, ErrorType>::Simple(
     ElementPointer<Element> element, ErrorType cost) noexcept
     : m_element(std::move(element)), m_cost(std::move(cost))
 {
 }
 
 template <typename Element, typename ErrorType>
-const ElementPointer<Element> &Simple<Element, ErrorType>::element() const
-    noexcept
+inline const ElementPointer<Element> &Simple<Element, ErrorType>::element()
+    const noexcept
 {
     return m_element;
 }
 
 template <typename Element, typename ErrorType>
-const ErrorType &Simple<Element, ErrorType>::cost() const noexcept
+inline const ErrorType &Simple<Element, ErrorType>::cost() const noexcept
 {
     return m_cost;
 }
 
 template <typename Element, typename ErrorType>
-Simple<Element, ErrorType>::operator bool() const noexcept
+inline Simple<Element, ErrorType>::operator bool() const noexcept
 {
     return m_element.valid();
 }
 
 template <typename Element, typename ErrorType>
-bool Simple<Element, ErrorType>::operator<(
+inline bool Simple<Element, ErrorType>::operator<(
     const Simple<Element, ErrorType> &other) const noexcept
 {
     return m_cost < other.m_cost;
 }
 
 template <typename Element, typename ErrorType>
-bool Simple<Element, ErrorType>::operator<=(
+inline bool Simple<Element, ErrorType>::operator<=(
     const Simple<Element, ErrorType> &other) const noexcept
 {
     return operator<(other) || operator==(other);
 }
 
 template <typename Element, typename ErrorType>
-bool Simple<Element, ErrorType>::operator>(
+inline bool Simple<Element, ErrorType>::operator>(
     const Simple<Element, ErrorType> &other) const noexcept
 {
     return !operator<=(other);
 }
 
 template <typename Element, typename ErrorType>
-bool Simple<Element, ErrorType>::operator>=(
+inline bool Simple<Element, ErrorType>::operator>=(
     const Simple<Element, ErrorType> &other) const noexcept
 {
     return !operator<(other);
 }
 
 template <typename Element, typename ErrorType>
-bool Simple<Element, ErrorType>::operator==(
+inline bool Simple<Element, ErrorType>::operator==(
     const Simple<Element, ErrorType> &other) const noexcept
 {
     return m_element.get() == other.m_element.get() && m_cost == other.m_cost;
 }
 
 template <typename Element, typename ErrorType>
-bool Simple<Element, ErrorType>::operator!=(
+inline bool Simple<Element, ErrorType>::operator!=(
     const Simple<Element, ErrorType> &other) const noexcept
 {
     return !operator==(other);
 }
 
 template <typename Element, typename ErrorType>
-bool Simple<Element, ErrorType>::operator<(const ErrorType &cost) const noexcept
+inline bool Simple<Element, ErrorType>::operator<(const ErrorType &cost) const
+    noexcept
 {
     return m_cost < cost;
 }
 
 template <typename Element, typename ErrorType>
-VertexPlacement<Element, ErrorType>::VertexPlacement(
+inline VertexPlacement<Element, ErrorType>::VertexPlacement(
     ElementPointer<Element> element,
     ErrorType               cost,
     position_type           position) noexcept
     : Simple<Element, ErrorType>(std::move(element), std::move(cost)),
       m_hint(std::move(position))
 {
+}
+
+template <typename Element, typename ErrorType>
+inline auto VertexPlacement<Element, ErrorType>::position_hint() const noexcept
+    -> const position_type &
+{
+    return m_hint;
 }
 }  // namespace operation
 }  // namespace lod
