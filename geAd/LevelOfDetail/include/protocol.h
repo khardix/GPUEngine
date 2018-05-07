@@ -5,6 +5,7 @@
  * @brief Structures for passing data between parts of simplification algorithm.
  */
 
+#include <functional>
 #include <memory>
 #include <type_traits>
 
@@ -30,36 +31,53 @@ struct FullEdgeTag {
 template <typename Element>
 class ElementPointer {
 public:
-    using type = std::add_pointer_t<Element>;
+    using type = Element;
+    /// @brief For concrete type queries.
+    using pointer_type = std::add_pointer_t<type>;
+    /// @brief For (ordered) associate container templating.
+    using pointer_cmp = std::less<pointer_type>;
 
     ElementPointer() noexcept = default;
-    ElementPointer(type element) noexcept : m_ptr(std::move(element)) {}
+    ElementPointer(type &element) noexcept : m_ptr(std::addressof(element)) {}
+    ElementPointer(pointer_type ptr) noexcept : m_ptr(std::move(ptr)) {}
+
+    /// @brief Decay into the stored pointer.
+    operator pointer_type() const noexcept { return m_ptr; }
 
     /// @brief Access the evaluated element.
-    type get() const noexcept;
+    type &get() const noexcept;
     /// @brief Determine if the stored pointer is valid.
     bool valid() const noexcept;
 
 private:
-    type m_ptr = nullptr;
+    pointer_type m_ptr = nullptr;
 };
 /// @brief Specialization for shared_ptr as element.
 template <typename Element>
 class ElementPointer<std::shared_ptr<Element>> {
 public:
-    using type = std::weak_ptr<Element>;
+    using type = std::shared_ptr<Element>;
+    /// @brief For concrete type queries.
+    using pointer_type = std::weak_ptr<Element>;
+    /// @brief For (ordered) associate container templating.
+    using pointer_cmp = std::owner_less<pointer_type>;
 
     ElementPointer() noexcept = default;
-    ElementPointer(type element) noexcept : m_ptr(std::move(element)) {}
-    ElementPointer(const std::shared_ptr<Element> &element) noexcept;
+    ElementPointer(const type &element) noexcept : m_ptr(element) {}
+    ElementPointer(pointer_type ptr) noexcept : m_ptr(std::move(ptr)) {}
+
+    /// @brief Decay into the stored pointer.
+    operator pointer_type() const noexcept { return m_ptr; }
 
     /// @brief Access the evaluated element.
-    std::shared_ptr<Element> get() const noexcept;
+    type get() const noexcept;
     /// @brief Determine if the stored pointer is valid.
     bool valid() const noexcept;
+    /// @brief Access the weak reference in this object.
+    pointer_type as_weak() const noexcept;
 
 private:
-    type m_ptr;
+    pointer_type m_ptr;
 };
 
 /// @brief Simple operation cost measurement.
@@ -116,10 +134,9 @@ private:
 // Inline and template members
 namespace operation {
 template <typename Element>
-typename ElementPointer<Element>::type ElementPointer<Element>::get() const
-    noexcept
+auto ElementPointer<Element>::get() const noexcept -> type &
 {
-    return m_ptr;
+    return *m_ptr;
 }
 
 template <typename Element>
@@ -129,15 +146,7 @@ bool ElementPointer<Element>::valid() const noexcept
 }
 
 template <typename Element>
-ElementPointer<std::shared_ptr<Element>>::ElementPointer(
-    const std::shared_ptr<Element> &element) noexcept
-    : m_ptr(element)
-{
-}
-
-template <typename Element>
-std::shared_ptr<Element> ElementPointer<std::shared_ptr<Element>>::get() const
-    noexcept
+auto ElementPointer<std::shared_ptr<Element>>::get() const noexcept -> type
 {
     return m_ptr.lock();
 }
