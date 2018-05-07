@@ -105,6 +105,27 @@ bool common::EdgeCollapse::nonmanifold_collapse(
     return common_nodes.size() >= 3;
 }
 
+/** Half-edge collapse should not move original mesh border.
+ * It can result in degenerated triangles,
+ * inter-mesh discontinuity and similar problems.
+ * @param[in] collapsed The edge to be collapsed.
+ * @return True if the collapse would move a boundary edge.
+ */
+bool EdgeCollapse<HalfEdgeTag>::boundary_collapse(
+    const graph::DirectedEdge &collapsed)
+{
+    using namespace lod::graph;
+
+    if (collapsed.boundary()) {
+        return true;
+    }
+
+    auto other_edges = emanating_edges(*collapsed.previous().lock()->target());
+    return std::any_of(
+        std::cbegin(other_edges), std::cend(other_edges), [](const auto &edge) {
+            return edge->boundary();
+        });
+}
 
 /** Applies the operator to the mesh.
  * @param mesh The mesh to be modified.
@@ -122,9 +143,9 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
     auto modified = result_type{};
     auto to_delete = Mesh::EdgeSet{};
 
-    const auto collapsed_edge = operation.element().get();
-    const auto target_node = collapsed_edge->target();
-    const auto origin_node = collapsed_edge->previous().lock()->target();
+    const auto &collapsed_edge = operation.element().get();
+    const auto &target_node = collapsed_edge->target();
+    const auto &origin_node = collapsed_edge->previous().lock()->target();
 
     auto       edge_ring = opposite_edges(*origin_node);
     const auto edge_ring_complete
@@ -155,7 +176,8 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
     };
 
     // Make preliminary checks for operation validity
-    if (nonmanifold_collapse(*collapsed_edge)) {
+    if (nonmanifold_collapse(*collapsed_edge)
+        || boundary_collapse(*collapsed_edge)) {
         return modified;
     }
 

@@ -9,6 +9,7 @@
 #include "catch.hpp"
 #include <graph/Mesh.h>
 #include <graph/Triangle.h>
+#include <graph/algorithm.h>
 #include <operator/edge_collapse.h>
 #include <util/set_operations.h>
 
@@ -50,6 +51,38 @@ lod::graph::Mesh make_mesh()
     return Mesh(std::move(nodes), std::move(edges));
 }
 
+lod::graph::DirectedEdge::pointer_type regular_edge(
+    const lod::graph::Mesh &mesh)
+{
+    const auto center = lod::graph::Node{{0.f, 0.f, 0.f}};
+    auto       center_it = mesh.nodes().find(center);
+    REQUIRE(center_it != mesh.nodes().end());
+
+    return center_it->edge.lock();
+}
+
+lod::graph::DirectedEdge::pointer_type semiborder_edge(
+    const lod::graph::Mesh &mesh)
+{
+    const auto edge = regular_edge(mesh);
+    return nonstd::get<lod::graph::DirectedEdge::weak_type>(edge->neighbour())
+        .lock();
+}
+
+lod::graph::DirectedEdge::pointer_type border_edge(const lod::graph::Mesh &mesh)
+{
+    const auto X = lod::graph::Node{{1.f, 0.f, 0.f}};
+    auto       X_it = mesh.nodes().find(X);
+    REQUIRE(X_it != mesh.nodes().end());
+
+    for (auto &&edge : lod::graph::emanating_edges(*X_it)) {
+        if (*edge->target() != lod::graph::Node{{0.f, 0.f, 0.f}}) {
+            return edge;
+        }
+    }
+    return nullptr;
+}
+
 SCENARIO(
     "Application of half-edge collapse operator"
     "[operator]")
@@ -59,7 +92,6 @@ SCENARIO(
     using Tag = operation::HalfEdgeTag;
     using HalfEdgeCollapse = oper::EdgeCollapse<Tag>;
     using Operation = operation::Simple<Tag::element_type>;
-    using Labeled = std::tuple<std::string, Operation>;
 
     GIVEN("Two opposite triangles")
     {
@@ -92,70 +124,93 @@ SCENARIO(
         auto mesh = make_mesh();
         auto collapse = HalfEdgeCollapse{};
 
-        // prepare the operations
-        const auto center = graph::Node{{0.f, 0.f, 0.f}};
-        auto       center_it = mesh.nodes().find(center);
-        REQUIRE(center_it != mesh.nodes().end());
+        WHEN("A regular edge is collapsed")
+        {
+            auto  operation = Operation{regular_edge(mesh), 0.f};
+            auto &origin
+                = *(operation.element().get()->previous().lock()->target());
+            collapse(mesh, operation);
 
-        auto edge = mesh.edges().find(center_it->edge.lock());
-        REQUIRE(edge != mesh.edges().end());
-
-        auto neigh_ptr
-            = nonstd::get<graph::DirectedEdge::weak_type>((*edge)->neighbour());
-        auto neigh = mesh.edges().find(neigh_ptr.lock());
-        REQUIRE(neigh != mesh.edges().end());
-
-        auto to_boundary = Labeled{"towards boundary", Operation(*edge, 0.f)};
-        auto from_boundary = Labeled{"from boundary", Operation(*neigh, 0.f)};
-
-        for (const auto &op : {to_boundary, from_boundary}) {
-            WHEN("An edge is collapsed " + std::get<std::string>(op))
+            THEN("The mesh contains expected number of elements")
             {
-                auto &operation = std::get<Operation>(op);
-                auto &origin
-                    = *(operation.element().get()->previous().lock()->target());
-                collapse(mesh, operation);
+                REQUIRE(mesh.nodes().size() == 3);
+                REQUIRE(mesh.edges().size() == 3);
+            }
+            THEN("All edges are boundary edges")
+            {
+                auto is_boundary
+                    = [](const auto &edge) { return edge->boundary(); };
 
-                THEN("The mesh contains expected number of elements")
-                {
-                    REQUIRE(mesh.nodes().size() == 3);
-                    REQUIRE(mesh.edges().size() == 3);
-                }
-                THEN("All edges are boundary edges")
-                {
-                    auto is_boundary
-                        = [](const auto &edge) { return edge->boundary(); };
+                REQUIRE(std::all_of(
+                    mesh.edges().cbegin(), mesh.edges().cend(), is_boundary));
+            }
+            THEN("All edges are connected")
+            {
+                auto connected = [&mesh](const auto &edge) {
+                    auto cnt = mesh.edges().count(edge->previous().lock());
+                    return edge->previous().lock() != nullptr && cnt > 0;
+                };
 
-                    REQUIRE(std::all_of(
-                        mesh.edges().cbegin(),
-                        mesh.edges().cend(),
-                        is_boundary));
-                }
-                THEN("All edges are connected")
-                {
-                    auto connected = [&mesh](const auto &edge) {
-                        auto cnt = mesh.edges().count(edge->previous().lock());
-                        return edge->previous().lock() != nullptr && cnt > 0;
-                    };
+                REQUIRE(std::all_of(
+                    mesh.edges().cbegin(), mesh.edges().cend(), connected));
+            }
+            THEN("Mesh does not contain the origin node")
+            {
+                REQUIRE(mesh.nodes().count(origin) == 0);
+            }
+            THEN("All nodes have valid edge reference")
+            {
+                auto valid_ref = [&mesh](const auto &node) {
+                    return mesh.edges().count(node.edge.lock()) > 0;
+                };
 
-                    REQUIRE(std::all_of(
-                        mesh.edges().cbegin(), mesh.edges().cend(), connected));
+                for (const auto &node : mesh.nodes()) {
+                    CAPTURE(node.position);
+                    REQUIRE(valid_ref(node));
                 }
-                THEN("Mesh does not contain the origin node")
-                {
-                    REQUIRE(mesh.nodes().count(origin) == 0);
-                }
-                THEN("All nodes have valid edge reference")
-                {
-                    auto valid_ref = [&mesh](const auto &node) {
-                        return mesh.edges().count(node.edge.lock()) > 0;
-                    };
-
-                    for (const auto &node : mesh.nodes()) {
-                        CAPTURE(node.position);
-                        REQUIRE(valid_ref(node));
+            }
+            THEN("All edges point to valid nodes")
+            {
+                auto valid_target = [&mesh](const auto &edge) {
+                    auto target_ptr = edge->target();
+                    auto mesh_it = mesh.nodes().find(*target_ptr);
+                    if (mesh_it == mesh.nodes().end()) {
+                        FAIL("Node is not known to mesh");
+                        return false;
                     }
-                }
+                    auto mesh_ptr = &*mesh_it;
+
+                    return target_ptr == mesh_ptr;
+                };
+
+                REQUIRE(std::all_of(
+                    mesh.edges().begin(), mesh.edges().end(), valid_target));
+            }
+        }
+
+        WHEN("A semi-boundary edge is collapsed")
+        {
+            auto operation = Operation{semiborder_edge(mesh), 0.f};
+            auto modified = collapse(mesh, operation);
+
+            THEN("The mesh is not modified")
+            {
+                REQUIRE(mesh.nodes().size() == 4);
+                REQUIRE(mesh.edges().size() == 9);
+                REQUIRE(modified.empty());
+            }
+        }
+
+        WHEN("A boundary edge is collapsed")
+        {
+            auto operation = Operation{border_edge(mesh), 0.f};
+            auto modified = collapse(mesh, operation);
+
+            THEN("The mesh is not modified")
+            {
+                REQUIRE(mesh.nodes().size() == 4);
+                REQUIRE(mesh.edges().size() == 9);
+                REQUIRE(modified.empty());
             }
         }
     }
