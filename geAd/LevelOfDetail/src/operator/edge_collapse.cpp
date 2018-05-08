@@ -184,8 +184,6 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
     try {
     using namespace lod::graph;
 
-    auto &mesh_edges = mesh.edges();
-
     auto modified = result_type{};
     auto to_delete = Mesh::EdgeSet{};
 
@@ -287,13 +285,16 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
     try {
     using namespace lod::graph;
 
-    auto modified = result_type{};
-    auto to_delete = Mesh::EdgeSet{};
-
     auto collapsed = operation.element().get();
     auto opposite
         = nonstd::get<DirectedEdge::weak_type>(collapsed->neighbour()).lock();
-    auto candidate = Node{operation.position_hint()};
+
+    auto        candidate = Node{operation.position_hint()};
+    const auto &target_node = *collapsed->target();
+    const auto &origin_node = *collapsed->previous().lock()->target();
+
+    auto modified = result_type{};
+    auto to_delete = Mesh::EdgeSet{};
 
     const auto collapsed_triangle = collapsed->triangle_edges();
     const auto opposite_triangle = opposite->triangle_edges();
@@ -346,7 +347,7 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
     }
 
     // Adjust the surroundings
-    for (const auto &edge : emanating_edges(new_node)) {
+    for (const auto &edge : opposite_edges(new_node)) {
         edge->next()->target() = std::addressof(new_node);
         if (edge->target()->edge.expired()) {
             edge->target()->edge = edge->next();
@@ -355,8 +356,12 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
     }
 
     // Drop nodes and edges
-    mesh.nodes().erase(*collapsed->target());
-    mesh.nodes().erase(*opposite->target());
+    if (new_node != target_node) {
+        mesh.nodes().erase(target_node);
+    }
+    if (new_node != origin_node) {
+        mesh.nodes().erase(origin_node);
+    }
     for (auto &&edge : to_delete) {
         mesh.edges().erase(edge);
     }
