@@ -77,8 +77,9 @@ template <typename Tag>
 glm::vec3 lod::metric::QEM<Tag>::position(const glm::mat4 &quadric)
 {
     const auto position_mat = glm::row(quadric, 3, {0.f, 0.f, 0.f, 1.f});
-    return static_cast<glm::vec3>(
-        glm::normalize(position_mat * glm::vec4{0.f, 0.f, 0.f, 1.f}));
+    auto       full_position
+        = glm::inverse(position_mat) * glm::vec4{0.f, 0.f, 0.f, 1.f};
+    return static_cast<glm::vec3>(full_position);
 }
 
 /** Calculates the cost of replacing an edge with given quadric with node at

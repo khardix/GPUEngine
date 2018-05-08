@@ -91,18 +91,24 @@ SCENARIO(
 
                 REQUIRE(quadric == expected);
             }
+            THEN("The node's error is 0")
+            {
+                auto error = qem.error(quadric, C.position);
+                REQUIRE(error == 0.0);
+            }
         }
     }
 
     GIVEN("A quadric")
     {
         // clang-format off
-        const auto quadric = glm::mat4{
-            1.f, 0.f, 0.f, 0.f,
-            0.f, 1.f, 0.f, 0.f,
+        // column-major storage!
+        const auto quadric = glm::transpose(glm::mat4{
+            1.f, 2.f, 0.f, 1.f,
+            2.f, 1.f, 0.f, 0.f,
             0.f, 0.f, 1.f, 0.f,
             0.f, 0.f, 0.f, 0.f,
-        };
+        });
         // clang-format on
 
         WHEN("An optimal position is calculated")
@@ -111,7 +117,7 @@ SCENARIO(
 
             THEN("It contains the expected value")
             {
-                const auto expected = glm::vec3{0.f, 0.f, 0.f};
+                const auto expected = glm::vec3{1 / 3.f, -2 / 3.f, -0.f};
                 REQUIRE(position == expected);
             }
         }
@@ -121,7 +127,7 @@ SCENARIO(
             const auto error
                 = QEM<FullEdgeTag>::error(quadric, glm::vec3{1.f, 1.f, 1.f});
 
-            THEN("It has the expected size") { REQUIRE(error == 3.f); }
+            THEN("It has the expected size") { REQUIRE(error == 8.f); }
         }
     }
 }

@@ -85,7 +85,7 @@ inline auto QEM<operation::FullEdgeTag>::operator()(
     const auto pos = position(qmat);
     const auto err = error(qmat, pos);
 
-    m_vertex_cache.emplace(pos, std::move(qmat));
+    m_vertex_cache.emplace(pos, qmat);
     return result_type(edge, err, pos);
 }
 
