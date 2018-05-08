@@ -234,11 +234,11 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
         }
 
         // connect outgoing edge to new target
-        auto next_edge = opposite->next();
-        next_edge->target() = target_node;
+        opposite->next()->target() = target_node;
 
         // mark all edges as modified
-        modified.insert({next_edge, opposite, opposite->previous().lock()});
+        auto triangle = opposite->triangle_edges();
+        modified.insert(std::cbegin(triangle), std::cend(triangle));
     }
 
     // fix nodes with deleted references
@@ -296,9 +296,6 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
     auto modified = result_type{};
     auto to_delete = Mesh::EdgeSet{};
 
-    const auto collapsed_triangle = collapsed->triangle_edges();
-    const auto opposite_triangle = opposite->triangle_edges();
-
     /// Make an edge ring without edges touching the other node.
     auto partial_ring = [](const auto &center_edge) {
         const auto &target = center_edge->target();
@@ -320,9 +317,14 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
         return modified;
     }
     for (const auto &edge : {collapsed, opposite}) {
+        if (!edge) {
+            continue;
+        }
+
         auto ring = partial_ring(edge);
         auto fold = would_fold(
             std::cbegin(ring), std::cend(ring), *edge->target(), candidate);
+
         if (fold) {
             return modified;
         }
@@ -330,7 +332,12 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
 
     // Insert and connect the candidate
     const auto &new_node = *mesh.nodes().insert(std::move(candidate)).first;
-    for (const auto &triangle : {collapsed_triangle, opposite_triangle}) {
+    for (const auto &edge : {collapsed, opposite}) {
+        if (!edge) {
+            continue;
+        }
+
+        auto triangle = edge->triangle_edges();
         connect_neighbours(triangle[1], triangle[2]);
 
         if (new_node.edge.expired()) {
@@ -352,7 +359,9 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
         if (edge->target()->edge.expired()) {
             edge->target()->edge = edge->next();
         }
-        modified.insert({edge, edge->next(), edge->previous().lock()});
+
+        auto triangle = edge->triangle_edges();
+        modified.insert(std::cbegin(triangle), std::cend(triangle));
     }
 
     // Drop nodes and edges
