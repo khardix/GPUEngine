@@ -38,7 +38,7 @@ signals:
     /// @brief Notify the renderer of a zoom change.
     void update_zoom(float delta);
     /// @brief A new scene is loaded.
-    void scene_loaded(std::shared_ptr<ge::sg::Scene> scene);
+    void model_selected(const QUrl &url);
 
 public slots:
     /// @brief Synchronize renderer and QML state.
@@ -52,9 +52,6 @@ public slots:
     void rotation_changed(QPointF target) noexcept;
     /// @brief Current rotation was finished.
     void rotation_finished() noexcept;
-
-    /// @brief A model file was selected.
-    void select_model(const QUrl &url);
 
 private slots:
     /// @brief Attach self to new window.
@@ -83,6 +80,10 @@ public:
     /// @brief Reset parent window of this renderer's component.
     Renderer &window(QQuickWindow *window) noexcept;
 
+signals:
+    void load_scene_failed(const QString &what);
+    void load_scene_finished();
+
 public slots:
     /// @brief Set viewport size.
     void viewport_size(QSize size) noexcept;
@@ -93,7 +94,7 @@ public slots:
     /// @brief Update scene zoom.
     void update_zoom(float delta) noexcept;
     /// @brief Select new scene for rendering.
-    void reset_scene(std::shared_ptr<ge::sg::Scene> scene) noexcept;
+    void load_scene(const QUrl &url) noexcept;
 
 protected:
     /// @brief Initialize OpenGL context.
@@ -165,12 +166,5 @@ inline void GLView::Renderer::update_zoom(float delta) noexcept
 {
     // value adjustments chosen empirically for better feel
     m_zoom += glm::radians(delta / 20);
-}
-
-/** @param[in] scene The new scene to render. */
-inline void GLView::Renderer::reset_scene(
-    std::shared_ptr<ge::sg::Scene> scene) noexcept
-{
-    m_scene = scene;
 }
 // Inline and template members }}}

@@ -15,6 +15,8 @@ if (NOT TARGET AssimpModelLoader)
 endif (NOT TARGET AssimpModelLoader)
 list(APPEND external_deps AssimpModelLoader)
 
+list(APPEND external_deps LoDGenerator)
+
 # Qt5
 find_package(Qt5 COMPONENTS Qml Quick QUIET)
 list(APPEND external_deps Qt5::Quick Qt5::Qml)

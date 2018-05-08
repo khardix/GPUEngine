@@ -23,7 +23,7 @@ Window {
         title: "Select a model to display"
         folder: shortcuts.home
         onAccepted: {
-            opengl_view.select_model(model_selector.fileUrl);
+            opengl_view.model_selected(model_selector.fileUrl);
         }
     }
 

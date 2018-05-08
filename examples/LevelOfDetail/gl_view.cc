@@ -79,6 +79,9 @@ void GLView::sync_renderer_state()
         auto connect_self = [this](auto signal, auto slot) {
             connect(this, signal, m_renderer.get(), slot, Qt::DirectConnection);
         };
+        auto connect_renderer = [this](auto signal, auto slot) {
+            connect(m_renderer.get(), signal, this, slot, Qt::DirectConnection);
+        };
         auto connect_window = [this, &parent_window](auto signal, auto slot) {
             connect(
                 parent_window,
@@ -91,7 +94,11 @@ void GLView::sync_renderer_state()
         // update scene for painting
         connect_self(&GLView::update_rotation, &Renderer::update_rotation);
         connect_self(&GLView::update_zoom, &Renderer::update_zoom);
-        connect_self(&GLView::scene_loaded, &Renderer::reset_scene);
+        connect_self(&GLView::model_selected, &Renderer::load_scene);
+
+        connect_renderer(
+            &Renderer::load_scene_failed, &GLView::errorEncountered);
+        connect_renderer(&Renderer::load_scene_finished, &GLView::update);
 
         // paint the scene behind QML widgets
         connect_window(&QQuickWindow::beforeRendering, &Renderer::paint);
@@ -127,18 +134,14 @@ void GLView::rotation_changed(QPointF target) noexcept
 /** Attempts to load a new scene from selected file.
  * @param[in] url The URL of the scene/model file to load.
  */
-void GLView::select_model(const QUrl &url)
+void GLView::Renderer::load_scene(const QUrl &url) noexcept
 {
-    auto scene = std::shared_ptr<ge::sg::Scene>(
+    m_scene = std::shared_ptr<ge::sg::Scene>(
         AssimpModelLoader::loadScene(url.path().toLocal8Bit().constData()));
-    if (!scene) {
-        emit errorEncountered(QStringLiteral("Cannot load scene!"));
+    if (!m_scene) {
+        emit load_scene_failed(QStringLiteral("Cannot load scene!"));
     }
-    else {
-        emit scene_loaded(scene);
-    }
-
-    update();
+    emit load_scene_finished();
 }
 
 /** Translate a rotation to a quaternion.
