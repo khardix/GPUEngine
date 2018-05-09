@@ -2,13 +2,14 @@ import QtQuick 2.3
 import QtQuick.Window 2.2
 import QtQuick.Dialogs 1.1
 import QtQuick.Controls 1.4
+import QtQuick.Layouts 1.3
 
 import LevelOfDetail 1.0
 
 Window {
     id: main_window
-    width: 600
-    height: 800
+    width: 1024
+    height: 768
     color: "black"
     visible: true
 
@@ -51,7 +52,7 @@ Window {
     Rectangle {
         id: controls
         width: parent.width
-        height: 200 // parent.heigth / 4
+        height: 48
 
         anchors.left: parent.left
         anchors.right: parent.right
@@ -59,22 +60,57 @@ Window {
 
         color: Qt.rgba(1.0, 1.0, 1.0, 0.7)
 
-        Text {
-            id: controls_placeholder
-            text: "Placeholder for control elements"
-            color: "black"
-            anchors.centerIn: parent
-        }
+        GridLayout {
+            columns: 3
+            rowSpacing: 1
+            columnSpacing: 1
 
-        Button {
-            text: "Select model to display"
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            height: 24
+            anchors.fill: parent
 
-            onClicked: {
-                model_selector.visible = true;
+            Slider {
+                id: level_selection
+                maximumValue: 0.0
+                stepSize: 1.0
+                tickmarksEnabled: true
+
+                Layout.column: 0
+                Layout.row: 0
+                Layout.columnSpan: 3
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
+
+            Button {
+                id: btn_select
+                text: "Select model to display"
+
+                onClicked: {
+                    model_selector.visible = true;
+                }
+
+                Layout.column: 0
+                Layout.row: 1
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
+
+            SpinBox {
+                id: num_steps
+
+                Layout.column: 1
+                Layout.row: 1
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
+
+            Button {
+                id: btn_simplify;
+                text: "Simplify"
+
+                Layout.column: 2
+                Layout.row: 1
+                Layout.fillWidth: true
+                Layout.fillHeight: true
             }
         }
     }
