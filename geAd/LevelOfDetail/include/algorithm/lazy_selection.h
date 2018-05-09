@@ -90,6 +90,17 @@ private:
         = static_cast<threshold_type>(0);
 };
 
+/** @brief Convenience wrapper around the full LazySelection functor. */
+template <
+    typename T,
+    template <class> class M,
+    template <class> class O,
+    typename... Args>
+inline decltype(auto) lazy_selection(Args &&... args)
+{
+    return LazySelection<T, M, O>{}(std::forward<Args>(args)...);
+}
+
 
 // Inline and template members
 /** Initialize the internal state with a new mesh.
