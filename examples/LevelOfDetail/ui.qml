@@ -17,6 +17,7 @@ Window {
         id: error_report
         title: "Processing error!"
         icon: StandardIcon.Warning
+        onAccepted: processingIndication.visible = false
     }
 
     FileDialog {  // model selection
@@ -28,6 +29,12 @@ Window {
         }
     }
 
+    BusyIndicator {
+        id: processingIndication
+        anchors.centerIn: parent
+        visible: false
+    }
+
     GLView {  // direct OpenGL rendering
         id: opengl_view
         focus: true
@@ -36,6 +43,10 @@ Window {
             error_report.text = what;
             error_report.visible = true;
         }
+        // onSceneReset: {
+        //     level_selection.maximumValue = levels;
+        //     level_selection.value = 0;
+        // }
 
         MouseArea {  // rotate scene on drag
             anchors.fill: parent;
@@ -55,14 +66,19 @@ Window {
                 case Qt.Key_L:
                 case Qt.Key_Right:
                     opengl_view.rotation_start(Qt.point(0, 0));
-                    opengl_view.rotation_changed(Qt.point(5, 0));
+                    opengl_view.rotation_changed(Qt.point(3, 0));
                     opengl_view.rotation_finished();
                     break;
                 case Qt.Key_H:
                 case Qt.Key_Left:
                     opengl_view.rotation_start(Qt.point(0, 0));
-                    opengl_view.rotation_changed(Qt.point(-5, 0));
+                    opengl_view.rotation_changed(Qt.point(-3, 0));
                     opengl_view.rotation_finished();
+                    break;
+
+                case Qt.Key_Q:
+                case Qt.Key_Escape:
+                    Qt.quit();
                     break;
             }
             event.accepted = true;
@@ -98,6 +114,10 @@ Window {
                 Layout.columnSpan: 3
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+
+                onValueChanged: {
+                    // opengl_view.level_selected(level_selection.value)
+                }
             }
 
             Button {
@@ -116,6 +136,7 @@ Window {
 
             SpinBox {
                 id: num_steps
+                value: 10
 
                 Layout.column: 1
                 Layout.row: 1
@@ -126,6 +147,11 @@ Window {
             Button {
                 id: btn_simplify;
                 text: "Simplify"
+
+                onClicked: {
+                    processingIndication.visible = true;
+                    // generate simplified models
+                }
 
                 Layout.column: 2
                 Layout.row: 1
