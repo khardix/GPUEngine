@@ -30,22 +30,42 @@ Window {
 
     GLView {  // direct OpenGL rendering
         id: opengl_view
+        focus: true
         anchors.fill: parent
         onErrorEncountered: {
             error_report.text = what;
             error_report.visible = true;
         }
-    }
 
-    MouseArea {  // rotate scene on drag
-        anchors.fill: parent;
-        onPressed: { opengl_view.rotation_start(Qt.point(mouse.x, mouse.y)); }
-        onReleased: { opengl_view.rotation_finished(); }
-        onPositionChanged: {
-            opengl_view.rotation_changed(Qt.point(mouse.x, mouse.y));
+        MouseArea {  // rotate scene on drag
+            anchors.fill: parent;
+            onPressed: { opengl_view.rotation_start(Qt.point(mouse.x, mouse.y)); }
+            onReleased: { opengl_view.rotation_finished(); }
+            onPositionChanged: {
+                opengl_view.rotation_changed(Qt.point(mouse.x, mouse.y));
+            }
+            onWheel: {
+                opengl_view.update_zoom(wheel.angleDelta.y);
+            }
         }
-        onWheel: {
-            opengl_view.update_zoom(wheel.angleDelta.y);
+
+        Keys.onPressed: {
+            switch (event.key) {
+                default: return;
+                case Qt.Key_L:
+                case Qt.Key_Right:
+                    opengl_view.rotation_start(Qt.point(0, 0));
+                    opengl_view.rotation_changed(Qt.point(5, 0));
+                    opengl_view.rotation_finished();
+                    break;
+                case Qt.Key_H:
+                case Qt.Key_Left:
+                    opengl_view.rotation_start(Qt.point(0, 0));
+                    opengl_view.rotation_changed(Qt.point(-5, 0));
+                    opengl_view.rotation_finished();
+                    break;
+            }
+            event.accepted = true;
         }
     }
 
