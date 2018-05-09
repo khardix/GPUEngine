@@ -23,10 +23,10 @@ add_library(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME}
     PUBLIC  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/vendor>
-            $<INSTALL_INTERFACE:include/geAd/${PROJECT_NAME}>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/geAd/${PROJECT_NAME}>
     PRIVATE src)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_14)
-target_link_libraries(${PROJECT_NAME} geSG)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${external_deps})
 
 # Add installation instructions
 install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Config
@@ -34,8 +34,7 @@ install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Config
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY include/ vendor/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/geAd/${PROJECT_NAME})
-# FIXME -- install dependecies
-# install(EXPORT ${PROJECT_NAME}Config DESTINATION ${INSTALL_CM_DIR}/${PROJECT_NAME})
+install(EXPORT ${PROJECT_NAME}Config DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
 
 # Add tests
 add_executable(${PROJECT_NAME}TestSuite
