@@ -17,6 +17,7 @@
 #include <geGL/geGL.h>
 #include <geSG/Scene.h>
 
+#include "simplified_scene.hh"
 #include "visualization.hh"
 
 
@@ -33,12 +34,22 @@ public:
 signals:
     /// @brief A processig error occurred.
     void errorEncountered(const QString &what);
+    /// @brief New scene was loaded or generated
+    void sceneReset(unsigned current_levels);
+
     /// @brief Notify the renderer of a rotation change.
     void update_rotation(float dx, float dy);
     /// @brief Notify the renderer of a zoom change.
     void update_zoom(float delta);
+
     /// @brief A new scene is loaded.
     void model_selected(const QUrl &url);
+
+    /// @brief Notify the renderer of level change.
+    void level_selected(unsigned index);
+
+    /// @brief Notify the renderer to generate simplified levels.
+    void generate_levels(unsigned level_count);
 
 public slots:
     /// @brief Synchronize renderer and QML state.
@@ -82,7 +93,7 @@ public:
 
 signals:
     void load_scene_failed(const QString &what);
-    void load_scene_finished();
+    void scene_reset_finished(const unsigned current_levels);
 
 public slots:
     /// @brief Set viewport size.
@@ -93,12 +104,19 @@ public slots:
     void update_rotation(float dx, float dy) noexcept;
     /// @brief Update scene zoom.
     void update_zoom(float delta) noexcept;
+
     /// @brief Select new scene for rendering.
     void load_scene(const QUrl &url) noexcept;
+    /// @brief Generate simplified variants.
+    void generate_levels(unsigned level_count);
+    /// @brief Select new scene level.
+    void select_level(unsigned index);
 
 protected:
     /// @brief Initialize OpenGL context.
     static std::unique_ptr<ge::gl::Context> init_opengl();
+    /// @brief Clear the screen
+    void clear() const noexcept;
 
 private:
     // Qt data
@@ -109,9 +127,9 @@ private:
     std::unique_ptr<ge::gl::Context> m_context = nullptr;
 
     // Scene and its state
-    std::shared_ptr<ge::sg::Scene> m_scene = nullptr;
-    glm::fquat                     m_rotation = {};  // identity
-    float                          m_zoom = -1.f;
+    SimplifiedScene m_scene = {};
+    glm::fquat      m_rotation = {};  // identity
+    float           m_zoom = -1.f;
 
     // Visualisation
     std::unique_ptr<UniformVisualization> m_visualization = nullptr;

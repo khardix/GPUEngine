@@ -3,6 +3,7 @@
  * @author Jan Staněk <xstane32@stud.fit.vutbr.cz>
  */
 
+#include <stdexcept>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -94,11 +95,15 @@ void GLView::sync_renderer_state()
         // update scene for painting
         connect_self(&GLView::update_rotation, &Renderer::update_rotation);
         connect_self(&GLView::update_zoom, &Renderer::update_zoom);
+
         connect_self(&GLView::model_selected, &Renderer::load_scene);
+        connect_self(&GLView::level_selected, &Renderer::select_level);
+        connect_self(&GLView::generate_levels, &Renderer::generate_levels);
 
         connect_renderer(
             &Renderer::load_scene_failed, &GLView::errorEncountered);
-        connect_renderer(&Renderer::load_scene_finished, &GLView::update);
+        connect_renderer(&Renderer::scene_reset_finished, &GLView::sceneReset);
+        connect_renderer(&Renderer::scene_reset_finished, &GLView::update);
 
         // paint the scene behind QML widgets
         connect_window(&QQuickWindow::beforeRendering, &Renderer::paint);
@@ -136,12 +141,37 @@ void GLView::rotation_changed(QPointF target) noexcept
  */
 void GLView::Renderer::load_scene(const QUrl &url) noexcept
 {
-    m_scene = std::shared_ptr<ge::sg::Scene>(
-        AssimpModelLoader::loadScene(url.path().toLocal8Bit().constData()));
-    if (!m_scene) {
+    m_scene = SimplifiedScene(std::shared_ptr<ge::sg::Scene>(
+        AssimpModelLoader::loadScene(url.path().toLocal8Bit().constData())));
+    if (m_scene.scene() == nullptr) {
         emit load_scene_failed(QStringLiteral("Cannot load scene!"));
     }
-    emit load_scene_finished();
+    emit scene_reset_finished(1);
+}
+
+/** Attempts to generate simplified levels from original meshes.
+ * @param[in] level_count How many levels to generate.
+ * @note The result will be level_count+1 (original) levels.
+ */
+void GLView::Renderer::generate_levels(unsigned level_count) try {
+    clear();
+    if (m_scene.generate(level_count)) {
+        emit scene_reset_finished(level_count);
+    }
+    else {
+        emit scene_reset_finished(0);
+    }
+}
+catch (const std::runtime_error &exc) {
+    emit load_scene_failed(exc.what());
+}
+
+/** Selects one from the generated levels to display.
+ * @param[in] index The index of the level to select.
+ */
+void GLView::Renderer::select_level(unsigned index)
+{
+    m_scene.select_level(index);
 }
 
 /** Translate a rotation to a quaternion.
@@ -158,6 +188,17 @@ void GLView::Renderer::update_rotation(float dx, float dy) noexcept
 
     m_rotation = glm::normalize(
         m_rotation * glm::inverse(m_rotation) * world_rotation * m_rotation);
+}
+
+/** Clear the screen. */
+void GLView::Renderer::clear() const noexcept
+{
+    if (m_window == nullptr || !m_context) {
+        return;
+    }
+
+    m_context->glClearColor(.0f, 0.f, .0f, 0.f);
+    m_context->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 /** Render the item's contents. */
@@ -190,13 +231,12 @@ void GLView::Renderer::paint()
 
     // clear screen to black
     m_context->glDisable(GL_BLEND);
-    m_context->glClearColor(.0f, 0.f, .0f, 0.f);
-    m_context->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    clear();
 
     // draw the scene
     m_visualization->view_matrix(view_matrix);
     m_visualization->projection_matrix(proj_matrix);
-    m_visualization->draw(*m_context, m_scene);
+    m_visualization->draw(*m_context, m_scene.scene());
 
     // clean after OpenGL manipulations
     // WARNING: Zero-fills element buffer, unbind VAO before!

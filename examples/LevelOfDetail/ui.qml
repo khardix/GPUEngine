@@ -43,10 +43,16 @@ Window {
             error_report.text = what;
             error_report.visible = true;
         }
-        // onSceneReset: {
-        //     level_selection.maximumValue = levels;
-        //     level_selection.value = 0;
-        // }
+        onSceneReset: {
+            if (current_levels > 0) {
+                level_selection.maximumValue = current_levels - 1;
+            }
+            else {
+                level_selection.maximumValue = 0;
+            }
+            level_selection.value = 0;
+            processingIndication.visible = false;
+        }
 
         MouseArea {  // rotate scene on drag
             anchors.fill: parent;
@@ -116,7 +122,8 @@ Window {
                 Layout.fillHeight: true
 
                 onValueChanged: {
-                    // opengl_view.level_selected(level_selection.value)
+                    console.log(level_selection.value);
+                    opengl_view.level_selected(level_selection.value);
                 }
             }
 
@@ -150,7 +157,7 @@ Window {
 
                 onClicked: {
                     processingIndication.visible = true;
-                    // generate simplified models
+                    opengl_view.generate_levels(num_steps.value);
                 }
 
                 Layout.column: 2

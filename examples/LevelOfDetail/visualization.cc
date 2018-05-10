@@ -200,9 +200,9 @@ void UniformVisualization::draw(
             }
 
             auto &vao = m_vao_cache[mesh.get()];
-            if (!vao) {
-                vao = convert(*mesh);
-            }
+            /* if (!vao) { */
+            vao = convert(*mesh);
+            /* } */
 
             const auto &mode = util::glsg::translate(mesh->primitive);
             const auto &count = static_cast<GLsizei>(mesh->count);

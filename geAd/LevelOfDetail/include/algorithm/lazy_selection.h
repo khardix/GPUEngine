@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <functional>
 #include <iterator>
+#include <memory>
 #include <queue>
 #include <set>
 #include <unordered_set>
@@ -51,12 +52,21 @@ public:
     graph::Mesh &operator()(graph::Mesh &mesh, threshold_type threshold) const;
     ge::sg::Mesh operator()(
         const ge::sg::Mesh &mesh, threshold_type threshold) const;
+    std::shared_ptr<ge::sg::Mesh> operator()(
+        const std::shared_ptr<const ge::sg::Mesh> &mesh,
+        threshold_type                             threshold) const;
     template <typename InputIt, typename OutputIt>
     OutputIt operator()(
         const ge::sg::Mesh &mesh,
         InputIt             threshold_begin,
         InputIt             threshold_end,
         OutputIt            destination_begin) const;
+    template <typename InputIt, typename OutputIt>
+    OutputIt operator()(
+        const std::shared_ptr<const ge::sg::Mesh> &mesh,
+        InputIt                                    threshold_begin,
+        InputIt                                    threshold_end,
+        OutputIt                                   destination_begin) const;
 
     /// @brief Create regular series of simplified variants of the input mesh.
     template <typename OutputIt>
@@ -64,6 +74,11 @@ public:
         const ge::sg::Mesh &mesh,
         size_type           num_variants,
         OutputIt            out_begin) const;
+    template <typename OutputIt>
+    OutputIt operator()(
+        const std::shared_ptr<const ge::sg::Mesh> &mesh,
+        size_type                                  num_variants,
+        OutputIt                                   out_begin) const;
 
 protected:
     /// @brief Initialize the internal state for new mesh processing.
@@ -202,6 +217,23 @@ inline ge::sg::Mesh LazySelection<T, M, O>::operator()(
 }
 
 /** @overload
+ * @param[in] mesh Pointer to the original mesh to decimate.
+ * @param[in] threshold The threshold to stop decimation at.
+ * @return Pointer to new decimated mesh.
+ */
+template <typename T, template <class> class M, template <class> class O>
+inline std::shared_ptr<ge::sg::Mesh> LazySelection<T, M, O>::operator()(
+    const std::shared_ptr<const ge::sg::Mesh> &mesh,
+    threshold_type                             threshold) const
+{
+    auto graph = graph::Mesh(*mesh);
+
+    operator()(graph, std::move_if_noexcept(threshold));
+
+    return std::make_shared<ge::sg::Mesh>(static_cast<ge::sg::Mesh>(graph));
+}
+
+/** @overload
  * This overload efficiently creates several variant of the original mesh
  * and stores them in container starting at destination_begin.
  * The destination_begin should conform to the same requirements
@@ -230,6 +262,34 @@ OutputIt LazySelection<T, M, O>::operator()(
         m_continue_cond = threshold;
         decimate();
         *destination_begin++ = static_cast<ge::sg::Mesh>(*m_mesh);
+    });
+    return destination_begin;
+}
+
+/** @overload
+ * @see Non-pointer variant of the same overload.
+ * @param[in] mesh Pointer to the original mesh to decimate.
+ * @param[in] threshold_begin The start of threshold container.
+ * @param[in] threshold_end The end of threshold container.
+ * @param[in] destination_begin The beginning of the output container.
+ * @return Iterator after the last generated variant,
+ * created from destination_begin.
+ */
+template <typename T, template <class> class M, template <class> class O>
+template <typename InputIt, typename OutputIt>
+OutputIt LazySelection<T, M, O>::operator()(
+    const std::shared_ptr<const ge::sg::Mesh> &mesh,
+    InputIt                                    threshold_begin,
+    InputIt                                    threshold_end,
+    OutputIt                                   destination_begin) const
+{
+    auto graph = graph::Mesh(*mesh);
+    initialize(graph);
+    std::for_each(threshold_begin, threshold_end, [&](const auto &threshold) {
+        m_continue_cond = threshold;
+        decimate();
+        *destination_begin++ = std::make_shared<ge::sg::Mesh>(
+            static_cast<ge::sg::Mesh>(*m_mesh));
     });
     return destination_begin;
 }
@@ -264,6 +324,43 @@ OutputIt LazySelection<T, M, O>::operator()(
         m_continue_cond = static_cast<size_type>(size);
         decimate();
         *out_begin++ = static_cast<ge::sg::Mesh>(*m_mesh);
+    });
+    return out_begin;
+}
+
+/** Efficiently creates several variants from one mesh.
+ * Each variant is created after decimating a fraction of original elements.
+ * @param[in] mesh The mesh to decimate.
+ * @param[in] num_variants The number of variants to create.
+ * @param[in] out_begin The start of output container.
+ * @return Iterator after the last generated variant,
+ * created from out_begin.
+ */
+template <typename T, template <class> class M, template <class> class O>
+template <typename OutputIt>
+OutputIt LazySelection<T, M, O>::operator()(
+    const std::shared_ptr<const ge::sg::Mesh> &mesh,
+    size_type                                  num_variants,
+    OutputIt                                   out_begin) const
+{
+    auto graph = graph::Mesh(*mesh);
+    initialize(graph);
+    const auto queue_size = m_queue.size();
+
+    auto sizes = std::vector<size_type>(num_variants - 1);
+    std::generate(
+        std::begin(sizes),
+        std::end(sizes),
+        // generate regular fractions
+        [n = num_variants, size_unit = queue_size / num_variants]() mutable {
+            return (--n) * size_unit;
+        });
+
+    std::for_each(std::cbegin(sizes), std::cend(sizes), [&](const auto &size) {
+        m_continue_cond = static_cast<size_type>(size);
+        decimate();
+        *out_begin++ = std::make_shared<ge::sg::Mesh>(
+            static_cast<ge::sg::Mesh>(*m_mesh));
     });
     return out_begin;
 }
