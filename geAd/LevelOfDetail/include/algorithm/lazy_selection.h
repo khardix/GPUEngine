@@ -259,7 +259,7 @@ OutputIt LazySelection<T, M, O>::operator()(
     auto graph = graph::Mesh(mesh);
     initialize(graph);
     std::for_each(threshold_begin, threshold_end, [&](const auto &threshold) {
-        m_continue_cond = threshold;
+        m_continue_cond = threshold_type(threshold);
         decimate();
         *destination_begin++ = static_cast<ge::sg::Mesh>(*m_mesh);
     });
@@ -286,7 +286,7 @@ OutputIt LazySelection<T, M, O>::operator()(
     auto graph = graph::Mesh(*mesh);
     initialize(graph);
     std::for_each(threshold_begin, threshold_end, [&](const auto &threshold) {
-        m_continue_cond = threshold;
+        m_continue_cond = threshold_type(threshold);
         decimate();
         *destination_begin++ = std::make_shared<ge::sg::Mesh>(
             static_cast<ge::sg::Mesh>(*m_mesh));

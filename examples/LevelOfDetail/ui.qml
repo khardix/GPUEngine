@@ -52,6 +52,7 @@ Window {
             }
             level_selection.value = 0;
             processingIndication.visible = false;
+            opengl_view.focus = true;
         }
 
         MouseArea {  // rotate scene on drag

@@ -4,7 +4,9 @@
  * (implementation).
  */
 
+#include <algorithm>
 #include <iterator>
+#include <vector>
 
 #include <LoDGenerator.h>
 
@@ -39,10 +41,21 @@ bool SimplifiedScene::generate(std::size_t num_variants)
         return false;
     }
 
+    auto       thresholds = std::vector<float>(num_variants);
+    const auto step = 1.f / static_cast<float>(num_variants);
+
+    std::generate(
+        std::begin(thresholds), std::end(thresholds), [&, cur = 0.f]() mutable {
+            return cur += step;
+        });
+
     for (auto &&item : m_variants) {
         item.second.resize(1);  // only keep the original
         lod::simplify(
-            item.second[0], num_variants, std::back_inserter(item.second));
+            item.second[0],
+            std::cbegin(thresholds),
+            std::cend(thresholds),
+            std::back_inserter(item.second));
     }
 
     return true;
