@@ -26,7 +26,7 @@ target_include_directories(${PROJECT_NAME}
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/geAd/${PROJECT_NAME}>
     PRIVATE src)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_14)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${external_deps})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${external_deps})
 
 # Add installation instructions
 install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Config
