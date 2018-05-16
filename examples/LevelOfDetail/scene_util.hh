@@ -8,6 +8,7 @@
 #include <iterator>
 #include <memory>
 #include <stack>
+#include <utility>
 
 #include <GL/gl.h>
 #undef GL_GLEXT_VERSION  // Use the GPUEngine one
@@ -31,6 +32,10 @@ namespace glsg {
 GLenum translate(ge::sg::AttributeDescriptor::DataType type_id) noexcept;
 GLenum translate(ge::sg::Mesh::PrimitiveType primitive_id) noexcept;
 }  // namespace glsg
+
+/// @brief Calculate bounding box of a scene.
+std::pair<glm::vec3, glm::vec3> bounding_box(
+    const std::shared_ptr<const ge::sg::Scene> &scene);
 
 /// @brief Thin wrapper for in-order iteration over a scene.
 class SceneWalker {

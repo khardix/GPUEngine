@@ -16,6 +16,7 @@
 #include <AssimpModelLoader.h>
 
 #include "gl_view.hh"
+#include "scene_util.hh"
 
 /** Create internal signal-slot connections. */
 GLView::GLView()
@@ -146,6 +147,11 @@ void GLView::Renderer::load_scene(const QUrl &url) noexcept
     if (m_scene.scene() == nullptr) {
         emit load_scene_failed(QStringLiteral("Cannot load scene!"));
     }
+
+    auto bbox = util::bounding_box(m_scene.scene());
+    auto bbox_center = (bbox.second - bbox.first) / 2.f;
+    m_scene_center = bbox.first + bbox_center;
+
     emit scene_reset_finished(1);
 }
 
@@ -218,10 +224,11 @@ void GLView::Renderer::paint()
 
     // calculate matrices
     const auto view_matrix = [this] {
-        const auto position
+        const auto centering = glm::translate(glm::mat4(1.f), -m_scene_center);
+        const auto zoom
             = glm::translate(glm::mat4(1.f), glm::vec3(0.f, 0.f, m_zoom));
         const auto rotation = glm::mat4_cast(m_rotation);
-        return position * rotation;
+        return zoom * rotation * centering;
     }();
     const auto proj_matrix = [this] {
         const auto aspect_ratio = static_cast<float>(m_viewport_size.width())

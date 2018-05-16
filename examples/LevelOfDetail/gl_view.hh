@@ -128,6 +128,7 @@ private:
 
     // Scene and its state
     SimplifiedScene m_scene = {};
+    glm::vec3       m_scene_center = {0.f, 0.f, 0.f};
     glm::fquat      m_rotation = {};  // identity
     float           m_zoom = -1.f;
 

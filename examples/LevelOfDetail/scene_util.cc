@@ -3,9 +3,11 @@
  * @brief Utilities for necessary scene graph manipulation (implementation).
  */
 
-#include "scene_util.hh"
+#include <cassert>
 
 #include <geGL/Buffer.h>
+
+#include "scene_util.hh"
 
 /**
  * @param[in] type_id Generic attribute type identification.
@@ -76,6 +78,46 @@ GLenum util::glsg::translate(ge::sg::Mesh::PrimitiveType primitive_id) noexcept
         case PT::PATCH:
             return GL_PATCHES;
     }
+}
+
+/** Extract all vertices from a scene and store minimum and maximum along each
+ * axis.
+ * @param[in] scene The scene to process.
+ * @return A (minimum, maximum) pair of points representing the corners of the
+ * bounding box.
+ */
+std::pair<glm::vec3, glm::vec3> util::bounding_box(
+    const std::shared_ptr<const ge::sg::Scene> &scene)
+{
+    constexpr auto position = ge::sg::AttributeDescriptor::Semantic::position;
+    constexpr auto min_v = std::numeric_limits<float>::min();
+    constexpr auto max_v = std::numeric_limits<float>::max();
+
+    auto minimum = glm::vec3{max_v, max_v, max_v};
+    auto maximum = glm::vec3{min_v, min_v, min_v};
+
+    for (const auto &model : scene->models) {
+        for (const auto &mesh : model->meshes) {
+            const auto attr = mesh->getAttribute(position);
+            assert((attr && attr->numComponents == 3));  // NOLINT
+
+            const auto data = std::static_pointer_cast<const float>(attr->data);
+            const auto begin = data.get();
+            const auto end = begin + (attr->size / sizeof(float));
+
+            for (auto p = begin; p != end; p += attr->numComponents) {
+                minimum.x = std::min(minimum.x, p[0]);  // NOLINT
+                minimum.y = std::min(minimum.y, p[1]);  // NOLINT
+                minimum.z = std::min(minimum.z, p[2]);  // NOLINT
+
+                maximum.x = std::max(maximum.x, p[0]);  // NOLINT
+                maximum.y = std::max(maximum.y, p[1]);  // NOLINT
+                maximum.z = std::max(maximum.z, p[2]);  // NOLINT
+            }
+        }
+    }
+
+    return {minimum, maximum};
 }
 
 /** Initialize internal stacks to iterate over a sub-graph.
