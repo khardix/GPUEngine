@@ -281,6 +281,15 @@ namespace ge
             return (lhs._triangle.v0 - rhs._triangle.v0) / (3 * lhs.getN());
          }
 
+         virtual bool operator==(const self_type &rhs) const
+         {
+            return _Ind == rhs._Ind;
+         }
+         virtual bool operator!=(const self_type &rhs) const
+         { 
+            return !operator==(rhs);
+         }
+
          unsigned getN() const { return N; }
 
       protected:
