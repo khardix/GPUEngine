@@ -26,7 +26,11 @@ target_include_directories(${PROJECT_NAME}
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/geAd/${PROJECT_NAME}>
     PRIVATE src)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_14)
-target_link_libraries(${PROJECT_NAME} PUBLIC ${external_deps})
+# FIXME: Workaround geSG installation not using export sets.
+# The BUILD_INTERFACE means that the library links with geSG, but not propagate the dependency to its users!
+# The install process should be unified with other components.
+target_link_libraries(${PROJECT_NAME}
+    PUBLIC $<BUILD_INTERFACE:${external_deps}>)
 
 # Add installation instructions
 install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Config
