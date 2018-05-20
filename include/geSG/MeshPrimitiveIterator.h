@@ -121,7 +121,10 @@ namespace ge
 
          virtual bool operator==(const self_type& rhs) const
          {
-            return this->_triangle.v0 == rhs._triangle.v0;
+            /* return this->_triangle.v0 == rhs._triangle.v0; */
+             return (_triangle.v0 == rhs._triangle.v0)
+                 && (_triangle.v1 == rhs._triangle.v1)
+                 && (_triangle.v2 == rhs._triangle.v2);
          }
 
          virtual bool operator!=(const self_type& rhs) const
@@ -276,6 +279,15 @@ namespace ge
             if(lhs._Ind && rhs._Ind)
                return (lhs._Ind - rhs._Ind)/3;
             return (lhs._triangle.v0 - rhs._triangle.v0) / (3 * lhs.getN());
+         }
+
+         virtual bool operator==(const self_type &rhs) const
+         {
+            return _Ind == rhs._Ind;
+         }
+         virtual bool operator!=(const self_type &rhs) const
+         { 
+            return !operator==(rhs);
          }
 
          unsigned getN() const { return N; }
