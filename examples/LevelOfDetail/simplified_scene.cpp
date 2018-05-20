@@ -10,8 +10,8 @@
 
 #include <LoDGenerator.h>
 
-#include "scene_util.hh"
-#include "simplified_scene.hh"
+#include "scene_util.h"
+#include "simplified_scene.h"
 
 
 /** Prepare the internal structure for further simplification.

@@ -15,6 +15,7 @@ if (NOT TARGET AssimpModelLoader)
 endif (NOT TARGET AssimpModelLoader)
 list(APPEND external_deps AssimpModelLoader)
 
+# Requires building with -DGPUENGINE_BUILD_geAD=ON
 list(APPEND external_deps LoDGenerator)
 
 # Qt5
@@ -35,7 +36,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 add_executable(${PROJECT_NAME}
-    main.cc gl_view.cc scene_util.cc simplified_scene.cc visualization.cc
+    main.cpp gl_view.cpp scene_util.cpp simplified_scene.cpp visualization.cpp
     resources.qrc)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_14)
 target_link_libraries(${PROJECT_NAME} ${external_deps})

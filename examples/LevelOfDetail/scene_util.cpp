@@ -7,7 +7,7 @@
 
 #include <geGL/Buffer.h>
 
-#include "scene_util.hh"
+#include "scene_util.h"
 
 /**
  * @param[in] type_id Generic attribute type identification.

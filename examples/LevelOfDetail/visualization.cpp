@@ -8,8 +8,8 @@
 
 #include <geGL/Buffer.h>
 
-#include "scene_util.hh"
-#include "visualization.hh"
+#include "scene_util.h"
+#include "visualization.h"
 
 
 /// @brief Hardcoded source for vertex shader of the uniform program

@@ -17,8 +17,8 @@
 #include <geGL/geGL.h>
 #include <geSG/Scene.h>
 
-#include "simplified_scene.hh"
-#include "visualization.hh"
+#include "simplified_scene.h"
+#include "visualization.h"
 
 
 /** @brief QML component that displays the rendering.

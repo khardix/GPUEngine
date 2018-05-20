@@ -5,7 +5,7 @@
 #include <QQmlApplicationEngine>
 #include <QSurfaceFormat>
 
-#include "gl_view.hh"
+#include "gl_view.h"
 
 int main(int argc, char *argv[]) try {
     // Explicitly request OpenGL version 4.5

@@ -15,8 +15,8 @@
 
 #include <AssimpModelLoader.h>
 
-#include "gl_view.hh"
-#include "scene_util.hh"
+#include "gl_view.h"
+#include "scene_util.h"
 
 /** Create internal signal-slot connections. */
 GLView::GLView()
