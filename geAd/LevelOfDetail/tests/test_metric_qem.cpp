@@ -37,7 +37,7 @@ SCENARIO(
 
             THEN("It computes the expected values")
             {
-                const auto expected = glm::vec4{1.f, 0.f, 0.f, 0.f};
+                const auto expected = glm::vec4{1.f, 0.f, 0.f, -0.f};
                 REQUIRE(plane == expected);
             }
         }
@@ -93,7 +93,7 @@ SCENARIO(
             }
             THEN("The node's error is 0")
             {
-                auto error = qem.error(quadric, C.position);
+                auto error = QEM<FullEdgeTag>::error(quadric, C.position);
                 REQUIRE(error == 0.0);
             }
         }
@@ -117,7 +117,7 @@ SCENARIO(
 
             THEN("It contains the expected value")
             {
-                const auto expected = glm::vec3{1 / 3.f, -2 / 3.f, -0.f};
+                const auto expected = glm::vec3{1 / 3.f, -2 / 3.f, 0.f};
                 REQUIRE(position == expected);
             }
         }
