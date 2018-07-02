@@ -6,6 +6,7 @@
 void force_compilation()
 {
     using lod::algorithm::LazySelection;
+    using lod::algorithm::MaxError;
     using lod::metric::QEM;
     using lod::oper::EdgeCollapse;
     using lod::operation::HalfEdgeTag;
@@ -13,5 +14,5 @@ void force_compilation()
     auto simplify = LazySelection<HalfEdgeTag, QEM, EdgeCollapse>{};
     auto mesh = lod::graph::Mesh({}, {});
 
-    simplify(mesh, 10.f);
+    simplify(mesh, MaxError<float>{10.f});
 }

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <functional>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <queue>
 #include <set>
@@ -22,6 +23,17 @@
 
 namespace lod {
 namespace algorithm {
+/** @brief Maximum cost of operation to apply to the mesh. */
+template <typename ErrorType = float>
+struct MaxError {
+    ErrorType threshold = static_cast<ErrorType>(0);
+};
+
+/** @brief Desired number of (decimated) elements in output mesh. */
+struct ElementCount {
+    std::size_t count = std::numeric_limits<std::size_t>::max();
+};
+
 /** @brief Lazy selection decimation algorithm.
  * @tparam Tag The tag type that determine the kind of operation to perform.
  * @tparam Metric The metric to use for ordering the operations.
@@ -45,27 +57,31 @@ public:
         std::vector<operation_type>,
         std::greater<operation_type>>;
 
-    using threshold_type = typename operation_type::cost_type;
+    using cost_type = typename operation_type::cost_type;
     using size_type = typename queue_type::size_type;
 
-    /// @brief Decimate all elements with cost below a certain threshold.
-    graph::Mesh &operator()(graph::Mesh &mesh, threshold_type threshold) const;
+    /// @brief Decimate the mesh until a specified condition is satisfied.
+    template <typename ConditionType>
+    graph::Mesh &operator()(
+        graph::Mesh &mesh, const ConditionType &condition) const;
+    template <typename ConditionType>
     ge::sg::Mesh operator()(
-        const ge::sg::Mesh &mesh, threshold_type threshold) const;
+        const ge::sg::Mesh &mesh, const ConditionType &condition) const;
+    template <typename ConditionType>
     std::shared_ptr<ge::sg::Mesh> operator()(
         const std::shared_ptr<const ge::sg::Mesh> &mesh,
-        threshold_type                             threshold) const;
+        const ConditionType &                      condition) const;
     template <typename InputIt, typename OutputIt>
     OutputIt operator()(
         const ge::sg::Mesh &mesh,
-        InputIt             threshold_begin,
-        InputIt             threshold_end,
+        InputIt             condition_begin,
+        InputIt             condition_end,
         OutputIt            destination_begin) const;
     template <typename InputIt, typename OutputIt>
     OutputIt operator()(
         const std::shared_ptr<const ge::sg::Mesh> &mesh,
-        InputIt                                    threshold_begin,
-        InputIt                                    threshold_end,
+        InputIt                                    condition_begin,
+        InputIt                                    condition_end,
         OutputIt                                   destination_begin) const;
 
     /// @brief Create regular series of simplified variants of the input mesh.
@@ -84,11 +100,13 @@ protected:
     /// @brief Initialize the internal state for new mesh processing.
     void initialize(graph::Mesh &mesh) const;
 
-    /// @brief Indicate that decimation with current parameters should continue.
-    bool continue_decimation() const;
+    /// @brief Convert stop condition to generic function/closure.
+    std::function<bool()> convert_condition(
+        const MaxError<cost_type> &cost) const;
+    std::function<bool()> convert_condition(const ElementCount &target) const;
 
     /// @brief Perform one round of the decimation.
-    void decimate() const;
+    void decimate(const std::function<bool()> &should_continue) const;
 
 private:
     Metric<Tag>   m_metric;    ///< Metric to use for evaluation.
@@ -100,9 +118,6 @@ private:
     mutable queue_type m_queue = {};
     /// @brief Elements that need to be re-evaluated before decimation.
     mutable pointer_set_type m_dirty = {};
-    /// @brief Current stop condition.
-    mutable nonstd::variant<threshold_type, size_type> m_continue_cond
-        = static_cast<threshold_type>(0);
 };
 
 /** @brief Convenience wrapper around the full LazySelection functor. */
@@ -134,32 +149,40 @@ inline void LazySelection<T, M, O>::initialize(graph::Mesh &mesh) const
     }
 }
 
-/** @param[in] queue The current queue of operations scheduled for decimation.
- * @return True if the decimation should continue, false otherwise.
+/** Encapsulate stop condition to one function/closure.
+ * @param[in] cost Maximum cost of operation to be applied.
+ * @return Function that indicates if the decimation should apply next
+ * operation.
  */
 template <typename T, template <class> class M, template <class> class O>
-bool LazySelection<T, M, O>::continue_decimation() const
+inline std::function<bool()> LazySelection<T, M, O>::convert_condition(
+    const MaxError<cost_type> &cost) const
 {
-    using nonstd::get;
-    using nonstd::holds_alternative;
+    return [this, threshold = cost.threshold]() {
+        return !m_queue.empty() && m_queue.top().cost() <= threshold;
+    };
+}
 
-    // Top value is cheaper than the threshold
-    if (holds_alternative<threshold_type>(m_continue_cond)) {
-        return m_queue.top().cost() < get<threshold_type>(m_continue_cond);
-    }
-    // Queue is larger than requested size.
-    if (holds_alternative<size_type>(m_continue_cond)) {
-        return m_queue.size() >= get<size_type>(m_continue_cond);
-    }
-
-    return false;  // XXX Exception?
+/** @overload
+ * @param[in] target The number of (decimated) elements in output mesh.
+ * @return Function that indicates if the decimation should apply next
+ * operation.
+ */
+template <typename T, template <class> class M, template <class> class O>
+inline std::function<bool()> LazySelection<T, M, O>::convert_condition(
+    const ElementCount &target) const
+{
+    return [this, target = target.count]() {
+        return m_mesh->container<element_type>().size() > target;
+    };
 }
 
 /** Runs the decimation until the stop condition is fulfilled. */
 template <typename T, template <class> class M, template <class> class O>
-void LazySelection<T, M, O>::decimate() const
+void LazySelection<T, M, O>::decimate(
+    const std::function<bool()> &should_continue) const
 {
-    while (!m_queue.empty() && continue_decimation()) {
+    while (!m_queue.empty() && should_continue()) {
         auto operation = m_queue.top();
         m_queue.pop();
 
@@ -185,50 +208,52 @@ void LazySelection<T, M, O>::decimate() const
 }
 
 /** Decimates all elements that have metric-dependent cost
- * lesser than the threshold.
+ * lesser than specified maximum cost.
  * @param[in,out] mesh The mesh to decimate. It is decimated in-place.
- * @param[in] threshold The threshold to stop the decimation at.
+ * @param[in] condition The condition to satisfy by the decimation.
  * @return Reference to the decimated mesh.
  */
 template <typename T, template <class> class M, template <class> class O>
+template <typename ConditionType>
 inline graph::Mesh &LazySelection<T, M, O>::operator()(
-    graph::Mesh &mesh, threshold_type threshold) const
+    graph::Mesh &mesh, const ConditionType &condition) const
 {
     initialize(mesh);
-    m_continue_cond = std::move_if_noexcept(threshold);
-    decimate();
+    decimate(convert_condition(condition));
     return mesh;
 }
 
 /** @overload
  * @param[in] mesh The original mesh to decimate.
- * @param[in] threshold The threshold to stop decimation at.
+ * @param[in] condition The condition to satisfy by the decimation.
  * @return New decimated mesh.
  */
 template <typename T, template <class> class M, template <class> class O>
+template <typename ConditionType>
 inline ge::sg::Mesh LazySelection<T, M, O>::operator()(
-    const ge::sg::Mesh &mesh, threshold_type threshold) const
+    const ge::sg::Mesh &mesh, const ConditionType &condition) const
 {
     auto graph = graph::Mesh(mesh);
 
-    operator()(graph, std::move_if_noexcept(threshold));
+    operator()(graph, condition);
 
     return static_cast<ge::sg::Mesh>(graph);
 }
 
 /** @overload
  * @param[in] mesh Pointer to the original mesh to decimate.
- * @param[in] threshold The threshold to stop decimation at.
+ * @param[in] condition The condition to satisfy by the decimation.
  * @return Pointer to new decimated mesh.
  */
 template <typename T, template <class> class M, template <class> class O>
+template <typename ConditionType>
 inline std::shared_ptr<ge::sg::Mesh> LazySelection<T, M, O>::operator()(
     const std::shared_ptr<const ge::sg::Mesh> &mesh,
-    threshold_type                             threshold) const
+    const ConditionType &                      condition) const
 {
     auto graph = graph::Mesh(*mesh);
 
-    operator()(graph, std::move_if_noexcept(threshold));
+    operator()(graph, condition);
 
     return std::make_shared<ge::sg::Mesh>(static_cast<ge::sg::Mesh>(graph));
 }
@@ -239,11 +264,12 @@ inline std::shared_ptr<ge::sg::Mesh> LazySelection<T, M, O>::operator()(
  * The destination_begin should conform to the same requirements
  * as i.e. d_first parameter of std::transform.
  * @see std::transform algorithm.
- * @note The threshold container SHOULD be sorted in ascending order,
- * otherwise some of them will be skipped.
+ * @note The condition container SHOULD be logically sorted
+ * (ascending order for costs, descending for number of elements, etc.).
+ * Unsorted container will result in duplicate meshes in output.
  * @param[in] mesh The original mesh to decimate.
- * @param[in] threshold_begin The start of threshold container.
- * @param[in] threshold_end The end of threshold container.
+ * @param[in] condition_begin The start of condition container.
+ * @param[in] condition_end The end of condition container.
  * @param[in] destination_begin The beginning of the output container.
  * @return Iterator after the last generated variant,
  * created from destination_begin.
@@ -252,25 +278,36 @@ template <typename T, template <class> class M, template <class> class O>
 template <typename InputIt, typename OutputIt>
 OutputIt LazySelection<T, M, O>::operator()(
     const ge::sg::Mesh &mesh,
-    InputIt             threshold_begin,
-    InputIt             threshold_end,
+    InputIt             condition_begin,
+    InputIt             condition_end,
     OutputIt            destination_begin) const
 {
     auto graph = graph::Mesh(mesh);
     initialize(graph);
-    std::for_each(threshold_begin, threshold_end, [&](const auto &threshold) {
-        m_continue_cond = threshold_type(threshold);
-        decimate();
+
+    // Prepare the conditions
+    auto steps = std::vector<std::function<bool()>>{};
+    steps.reserve(std::distance(condition_begin, condition_end));
+    std::transform(
+        condition_begin,
+        condition_end,
+        std::back_inserter(steps),
+        [this](auto &cond) { return convert_condition(cond); });
+
+    // Decimate
+    for (const auto &step : steps) {
+        decimate(step);
         *destination_begin++ = static_cast<ge::sg::Mesh>(*m_mesh);
-    });
+    }
+
     return destination_begin;
 }
 
 /** @overload
  * @see Non-pointer variant of the same overload.
- * @param[in] mesh Pointer to the original mesh to decimate.
- * @param[in] threshold_begin The start of threshold container.
- * @param[in] threshold_end The end of threshold container.
+ * @param[in] mesh The original mesh to decimate.
+ * @param[in] condition_begin The start of condition container.
+ * @param[in] condition_end The end of condition container.
  * @param[in] destination_begin The beginning of the output container.
  * @return Iterator after the last generated variant,
  * created from destination_begin.
@@ -279,18 +316,29 @@ template <typename T, template <class> class M, template <class> class O>
 template <typename InputIt, typename OutputIt>
 OutputIt LazySelection<T, M, O>::operator()(
     const std::shared_ptr<const ge::sg::Mesh> &mesh,
-    InputIt                                    threshold_begin,
-    InputIt                                    threshold_end,
+    InputIt                                    condition_begin,
+    InputIt                                    condition_end,
     OutputIt                                   destination_begin) const
 {
     auto graph = graph::Mesh(*mesh);
     initialize(graph);
-    std::for_each(threshold_begin, threshold_end, [&](const auto &threshold) {
-        m_continue_cond = threshold_type(threshold);
-        decimate();
+
+    // Prepare the conditions
+    auto steps = std::vector<std::function<bool()>>{};
+    steps.reserve(std::distance(condition_begin, condition_end));
+    std::transform(
+        condition_begin,
+        condition_end,
+        std::back_inserter(steps),
+        [this](auto &cond) { return convert_condition(cond); });
+
+    // Decimate
+    for (const auto &step : steps) {
+        decimate(step);
         *destination_begin++ = std::make_shared<ge::sg::Mesh>(
             static_cast<ge::sg::Mesh>(*m_mesh));
-    });
+    }
+
     return destination_begin;
 }
 
@@ -311,20 +359,21 @@ OutputIt LazySelection<T, M, O>::operator()(
     initialize(graph);
     const auto queue_size = m_queue.size();
 
-    auto sizes = std::vector<size_type>(num_variants - 1);
+    auto stops = std::vector<std::function<bool()>>(num_variants - 1);
     std::generate(
-        std::begin(sizes),
-        std::end(sizes),
+        std::begin(stops),
+        std::end(stops),
         // generate regular fractions
-        [n = num_variants, size_unit = queue_size / num_variants]() mutable {
-            return (--n) * size_unit;
+        [this,
+         n = num_variants,
+         size_unit = queue_size / num_variants]() mutable {
+            return convert_condition(ElementCount{(--n) * size_unit});
         });
 
-    std::for_each(std::cbegin(sizes), std::cend(sizes), [&](const auto &size) {
-        m_continue_cond = static_cast<size_type>(size);
-        decimate();
+    for (const auto &stop : stops) {
+        decimate(stop);
         *out_begin++ = static_cast<ge::sg::Mesh>(*m_mesh);
-    });
+    }
     return out_begin;
 }
 
@@ -347,21 +396,22 @@ OutputIt LazySelection<T, M, O>::operator()(
     initialize(graph);
     const auto queue_size = m_queue.size();
 
-    auto sizes = std::vector<size_type>(num_variants - 1);
+    auto stops = std::vector<std::function<bool()>>(num_variants - 1);
     std::generate(
-        std::begin(sizes),
-        std::end(sizes),
+        std::begin(stops),
+        std::end(stops),
         // generate regular fractions
-        [n = num_variants, size_unit = queue_size / num_variants]() mutable {
-            return (--n) * size_unit;
+        [this,
+         n = num_variants,
+         size_unit = queue_size / num_variants]() mutable {
+            return convert_condition(ElementCount{(--n) * size_unit});
         });
 
-    std::for_each(std::cbegin(sizes), std::cend(sizes), [&](const auto &size) {
-        m_continue_cond = static_cast<size_type>(size);
-        decimate();
+    for (const auto &stop : stops) {
+        decimate(stop);
         *out_begin++ = std::make_shared<ge::sg::Mesh>(
             static_cast<ge::sg::Mesh>(*m_mesh));
-    });
+    }
     return out_begin;
 }
 }  // namespace algorithm

@@ -37,16 +37,18 @@ SimplifiedScene::SimplifiedScene(scene_pointer_type scene)
  */
 bool SimplifiedScene::generate(std::size_t num_variants)
 {
+    using lod::algorithm::MaxError;
+
     if (m_variants.empty()) {
         return false;
     }
 
-    auto       thresholds = std::vector<float>(num_variants);
+    auto       thresholds = std::vector<MaxError<float>>(num_variants);
     const auto step = 1.f / static_cast<float>(num_variants);
 
     std::generate(
         std::begin(thresholds), std::end(thresholds), [&, cur = 0.f]() mutable {
-            return cur += step;
+            return MaxError<float>{cur += step};
         });
 
     for (auto &&item : m_variants) {
