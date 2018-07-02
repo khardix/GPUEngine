@@ -5,6 +5,7 @@
 
 void force_compilation()
 {
+    using lod::algorithm::ElementFraction;
     using lod::algorithm::LazySelection;
     using lod::algorithm::MaxError;
     using lod::metric::QEM;
@@ -15,4 +16,5 @@ void force_compilation()
     auto mesh = lod::graph::Mesh({}, {});
 
     simplify(mesh, MaxError<float>{10.f});
+    simplify(mesh, ElementFraction{0.5});
 }

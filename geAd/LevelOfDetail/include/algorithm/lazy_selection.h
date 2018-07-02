@@ -15,8 +15,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include <nonstd/variant.hpp>
-
 #include <geSG/Mesh.h>
 
 #include "../graph/Mesh.h"
@@ -32,6 +30,14 @@ struct MaxError {
 /** @brief Desired number of (decimated) elements in output mesh. */
 struct ElementCount {
     std::size_t count = std::numeric_limits<std::size_t>::max();
+};
+
+/** @brief Desired number of (decimated) elements in output mesh,
+ * specified as fraction of original element count.
+ * Valid values are in the interval (0.0, 1.0).
+ */
+struct ElementFraction {
+    double fraction = std::numeric_limits<double>::max();
 };
 
 /** @brief Lazy selection decimation algorithm.
@@ -104,6 +110,8 @@ protected:
     std::function<bool()> convert_condition(
         const MaxError<cost_type> &cost) const;
     std::function<bool()> convert_condition(const ElementCount &target) const;
+    std::function<bool()> convert_condition(
+        const ElementFraction &target) const;
 
     /// @brief Perform one round of the decimation.
     void decimate(const std::function<bool()> &should_continue) const;
@@ -175,6 +183,21 @@ inline std::function<bool()> LazySelection<T, M, O>::convert_condition(
     return [this, target = target.count]() {
         return m_mesh->container<element_type>().size() > target;
     };
+}
+
+/** @overload
+ * @param[in] target The number of (decimated) elements in output mesh.
+ * @return Function that indicates if the decimation should apply next
+ * operation.
+ */
+template <typename T, template <class> class M, template <class> class O>
+inline std::function<bool()> LazySelection<T, M, O>::convert_condition(
+    const ElementFraction &target) const
+{
+    const auto size
+        = static_cast<double>(m_mesh->container<element_type>().size());
+    auto count = std::round(target.fraction * size);
+    return convert_condition(ElementCount{static_cast<std::size_t>(count)});
 }
 
 /** Runs the decimation until the stop condition is fulfilled. */
@@ -357,17 +380,14 @@ OutputIt LazySelection<T, M, O>::operator()(
 {
     auto graph = graph::Mesh(mesh);
     initialize(graph);
-    const auto queue_size = m_queue.size();
 
     auto stops = std::vector<std::function<bool()>>(num_variants - 1);
     std::generate(
         std::begin(stops),
         std::end(stops),
         // generate regular fractions
-        [this,
-         n = num_variants,
-         size_unit = queue_size / num_variants]() mutable {
-            return convert_condition(ElementCount{(--n) * size_unit});
+        [this, n = num_variants, unit = 1.0 / num_variants]() mutable {
+            return convert_condition(ElementFraction{(--n) * unit});
         });
 
     for (const auto &stop : stops) {
@@ -394,17 +414,14 @@ OutputIt LazySelection<T, M, O>::operator()(
 {
     auto graph = graph::Mesh(*mesh);
     initialize(graph);
-    const auto queue_size = m_queue.size();
 
     auto stops = std::vector<std::function<bool()>>(num_variants - 1);
     std::generate(
         std::begin(stops),
         std::end(stops),
         // generate regular fractions
-        [this,
-         n = num_variants,
-         size_unit = queue_size / num_variants]() mutable {
-            return convert_condition(ElementCount{(--n) * size_unit});
+        [this, n = num_variants, unit = 1.0 / num_variants]() mutable {
+            return convert_condition(ElementFraction{(--n) * unit});
         });
 
     for (const auto &stop : stops) {
