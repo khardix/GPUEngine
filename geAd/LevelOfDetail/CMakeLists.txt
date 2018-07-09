@@ -51,3 +51,19 @@ add_executable(${PROJECT_NAME}TestSuite
 target_compile_features(${PROJECT_NAME}TestSuite PRIVATE cxx_std_14)
 target_link_libraries(${PROJECT_NAME}TestSuite ${PROJECT_NAME})
 add_test(test_lod_addon ${PROJECT_NAME}TestSuite)
+
+# Benchmark
+if (NOT TARGET AssimpModelLoader)
+    find_package(AssimpModelLoader CONFIG QUIET HINTS "${CMAKE_CURRENT_LIST_DIR}/../AssimpModelLoader/cmake")
+endif (NOT TARGET AssimpModelLoader)
+if (NOT TARGET ste)
+    find_package(ste)
+endif (NOT TARGET ste)
+if (NOT (TARGET AssimpModelLoader AND TARGET ste))
+    return()
+endif (NOT (TARGET AssimpModelLoader AND TARGET ste))
+
+set(BENCHMARK_NAME ${PROJECT_NAME}Benchmark)
+add_executable(${BENCHMARK_NAME} benchmark.cpp)
+target_compile_features(${BENCHMARK_NAME} PRIVATE cxx_std_14)
+target_link_libraries(${BENCHMARK_NAME} ${PROJECT_NAME} AssimpModelLoader ste)

@@ -26,8 +26,11 @@ using metric::QEM;
 using oper::EdgeCollapse;
 
 // Algorithm API
+using algorithm::ElementCount;
+using algorithm::ElementFraction;
 using algorithm::lazy_selection;
 using algorithm::LazySelection;
+using algorithm::MaxError;
 
 /// @brief Prepared simplification function.
 /// @see LazySelection for full range of possible call signatures.
