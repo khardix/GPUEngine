@@ -146,6 +146,7 @@ void GLView::Renderer::load_scene(const QUrl &url) noexcept
         AssimpModelLoader::loadScene(url.path().toLocal8Bit().constData())));
     if (m_scene.scene() == nullptr) {
         emit load_scene_failed(QStringLiteral("Cannot load scene!"));
+        return;
     }
 
     auto bbox = util::bounding_box(m_scene.scene());
