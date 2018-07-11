@@ -60,9 +60,10 @@ void mark_triangle_deleted(
     graph::Mesh::EdgeSet &trash, const graph::DetachedTriangle &triangle)
 {
     for (const auto &edge : triangle) {
-        auto previous = edge->previous().lock();
-        if (previous->target()->edge.lock() == edge) {
-            previous->target()->edge.reset();
+        auto &source_emanating_edge
+            = edge->previous().lock()->target().lock()->edge();
+        if (source_emanating_edge.lock() == edge) {
+            source_emanating_edge.reset();
         }
 
         trash.insert(edge);
@@ -82,10 +83,11 @@ bool common::EdgeCollapse::would_fold(
     const graph::Node &        current,
     const graph::Node &        candidate)
 {
-    const auto &origin_pos = opposite.previous().lock()->target()->position;
-    const auto &target_pos = opposite.target()->position;
-    const auto &current_pos = current.position;
-    const auto &candidate_pos = candidate.position;
+    const auto &origin_pos
+        = opposite.previous().lock()->target().lock()->position();
+    const auto &target_pos = opposite.target().lock()->position();
+    const auto &current_pos = current.position();
+    const auto &candidate_pos = candidate.position();
 
     const auto current_normal = glm::normalize(
         glm::cross(origin_pos - current_pos, target_pos - current_pos));
@@ -108,17 +110,20 @@ bool common::EdgeCollapse::nonmanifold_collapse(
     const graph::DirectedEdge &collapsed)
 {
     using namespace lod::graph;
-    using trans = std::pair<const Node *, Mesh::NodeSet &>;
+    using trans = std::pair<Node::const_pointer_type, Mesh::NodeSet &>;
 
     auto origin_nodes = Mesh::NodeSet{}, target_nodes = Mesh::NodeSet{};
-    for (auto &&t : {trans{collapsed.previous().lock()->target(), origin_nodes},
-                     trans{collapsed.target(), target_nodes}}) {
+    for (auto &&t :
+         {trans{collapsed.previous().lock()->target().lock(), origin_nodes},
+          trans{collapsed.target().lock(), target_nodes}}) {
         auto container = adjacent_nodes(*t.first);
         std::transform(
             std::begin(container),
             std::end(container),
             std::inserter(t.second, t.second.end()),
-            [](auto &&node_ptr) -> Node { return *node_ptr; });
+            [](auto &&node_ptr) -> Node::pointer_type {
+                return std::const_pointer_cast<Node>(node_ptr.lock());
+            });
     }
 
     const auto common_nodes = util::intersection(origin_nodes, target_nodes);
@@ -140,7 +145,8 @@ bool EdgeCollapse<HalfEdgeTag>::boundary_collapse(
         return true;
     }
 
-    auto other_edges = emanating_edges(*collapsed.previous().lock()->target());
+    auto other_edges
+        = emanating_edges(*collapsed.previous().lock()->target().lock());
     return std::any_of(
         std::cbegin(other_edges), std::cend(other_edges), [](const auto &edge) {
             return edge->boundary();
@@ -162,8 +168,9 @@ bool EdgeCollapse<FullEdgeTag>::boundary_collapse(
         return true;
     }
 
-    auto tgt_edges = emanating_edges(*collapsed.target());
-    auto org_edges = emanating_edges(*collapsed.previous().lock()->target());
+    auto tgt_edges = emanating_edges(*collapsed.target().lock());
+    auto org_edges
+        = emanating_edges(*collapsed.previous().lock()->target().lock());
     auto is_boundary = [](const auto &edge) { return edge->boundary(); };
 
     return std::any_of(
@@ -188,21 +195,21 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
     auto to_delete = Mesh::EdgeSet{};
 
     const auto &collapsed_edge = operation.element().get();
-    const auto &target_node = collapsed_edge->target();
-    const auto &origin_node = collapsed_edge->previous().lock()->target();
+    const auto  target_node = collapsed_edge->target().lock();
+    const auto origin_node = collapsed_edge->previous().lock()->target().lock();
 
     auto       edge_ring = opposite_edges(*origin_node);
     const auto edge_ring_complete
-        = (edge_ring.front()->previous().lock()->target()
-           == edge_ring.back()->target());
+        = (edge_ring.front()->previous().lock()->target().lock()
+           == edge_ring.back()->target().lock());
 
     /// This triangle will be replaced by previous one in the ring.
     auto replaced_by_prev = [&target_node](const auto &ring_edge) -> bool {
-        return ring_edge->target() == target_node;
+        return ring_edge->target().lock() == target_node;
     };
     /// This triangle will be replaced by next one in the ring.
     auto replaced_by_next = [&target_node](const auto &ring_edge) -> bool {
-        return ring_edge->previous().lock()->target() == target_node;
+        return ring_edge->previous().lock()->target().lock() == target_node;
     };
 
     // Make preliminary checks for operation validity
@@ -247,21 +254,21 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
             throw std::runtime_error("Non-manifold collapse!");
         }
 
-        auto &node = opposite->target();
-        if (node->edge.expired()) {
-            node->edge = opposite->next();
+        auto node = opposite->target().lock();
+        if (node->edge().expired()) {
+            node->edge() = opposite->next();
         }
     }
 
     if (!edge_ring_complete) {
-        auto &first_node = edge_ring.front()->previous().lock()->target();
-        if (first_node->edge.expired()) {
-            first_node->edge = edge_ring.front();
+        auto first_node = edge_ring.front()->previous().lock()->target().lock();
+        if (first_node->edge().expired()) {
+            first_node->edge() = edge_ring.front();
         }
     }
 
     // remove collapsed node and deleted edges
-    mesh.nodes().erase(*origin_node);
+    mesh.nodes().erase(std::const_pointer_cast<Node>(origin_node));
     for (auto &&deleted : to_delete) {
         mesh.edges().erase(deleted);
     }
@@ -289,23 +296,23 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
     auto opposite
         = nonstd::get<DirectedEdge::weak_type>(collapsed->neighbour()).lock();
 
-    auto        candidate = Node{operation.position_hint()};
-    const auto &target_node = *collapsed->target();
-    const auto &origin_node = *collapsed->previous().lock()->target();
+    auto       candidate = Node::make(operation.position_hint());
+    const auto target_node = collapsed->target().lock();
+    const auto origin_node = collapsed->previous().lock()->target().lock();
 
     auto modified = result_type{};
     auto to_delete = Mesh::EdgeSet{};
 
     /// Make an edge ring without edges touching the other node.
     auto partial_ring = [](const auto &center_edge) {
-        const auto &target = center_edge->target();
-        const auto &origin = center_edge->previous().lock()->target();
+        const auto target = center_edge->target().lock();
+        const auto origin = center_edge->previous().lock()->target().lock();
 
         auto ring = opposite_edges(*origin);
         auto new_end = std::remove_if(
             std::begin(ring), std::end(ring), [&](const auto &edge) {
-                return edge->target() == target
-                    || edge->previous().lock()->target() == target;
+                return edge->target().lock() == target
+                    || edge->previous().lock()->target().lock() == target;
             });
         ring.erase(new_end, std::end(ring));
 
@@ -323,7 +330,10 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
 
         auto ring = partial_ring(edge);
         auto fold = would_fold(
-            std::cbegin(ring), std::cend(ring), *edge->target(), candidate);
+            std::cbegin(ring),
+            std::cend(ring),
+            *edge->target().lock(),
+            *candidate);
 
         if (fold) {
             return modified;
@@ -340,13 +350,13 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
         auto triangle = edge->triangle_edges();
         connect_neighbours(triangle[1], triangle[2]);
 
-        if (new_node.edge.expired()) {
+        if (new_node->edge().expired()) {
             auto outgoing
                 = nonstd::get<DirectedEdge::weak_type>(triangle[2]->neighbour())
                       .lock();
 
             if (outgoing) {
-                new_node.edge = outgoing;
+                new_node->edge() = outgoing;
             }
         }
 
@@ -354,10 +364,10 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
     }
 
     // Adjust the surroundings
-    for (const auto &edge : opposite_edges(new_node)) {
-        edge->next()->target() = std::addressof(new_node);
-        if (edge->target()->edge.expired()) {
-            edge->target()->edge = edge->next();
+    for (const auto &edge : opposite_edges(*new_node)) {
+        edge->next()->target() = new_node;
+        if (edge->target().lock()->edge().expired()) {
+            edge->target().lock()->edge() = edge->next();
         }
 
         auto triangle = edge->triangle_edges();
@@ -366,10 +376,10 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
 
     // Drop nodes and edges
     if (new_node != target_node) {
-        mesh.nodes().erase(target_node);
+        mesh.nodes().erase(std::const_pointer_cast<Node>(target_node));
     }
     if (new_node != origin_node) {
-        mesh.nodes().erase(origin_node);
+        mesh.nodes().erase(std::const_pointer_cast<Node>(origin_node));
     }
     for (auto &&edge : to_delete) {
         mesh.edges().erase(edge);

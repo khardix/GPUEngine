@@ -9,15 +9,17 @@ SCENARIO(
 
     GIVEN("Two identical nodes")
     {
-        auto n1 = Node{glm::vec3{1.f, 1.f, 1.f}};
-        auto n2 = n1;
+        auto n1 = Node::make(glm::vec3{1.f, 1.f, 1.f});
+        auto n2 = std::make_shared<Node>(*n1);
 
         WHEN("compared")
         {
             THEN("they compare equal")
             {
-                REQUIRE(n1 == n2);
-                REQUIRE(n2 == n1);
+                REQUIRE(*n1 == *n2);
+                REQUIRE(*n2 == *n1);
+                REQUIRE(std::equal_to<Node::pointer_type>{}(n1, n2));
+                REQUIRE(std::equal_to<Node::pointer_type>{}(n2, n1));
             }
         }
 
@@ -25,7 +27,7 @@ SCENARIO(
         {
             THEN("the hashes are equal")
             {
-                auto hash = std::hash<Node>{};
+                auto hash = std::hash<Node::pointer_type>{};
 
                 REQUIRE(hash(n1) == hash(n2));
             }
@@ -33,15 +35,17 @@ SCENARIO(
     }
     GIVEN("Two different nodes")
     {
-        auto n1 = Node{glm::vec3{1.f, 1.f, 1.f}};
-        auto n2 = Node{glm::vec3{-1.f, -1.f, -1.f}};
+        auto n1 = Node::make(glm::vec3{1.f, 1.f, 1.f});
+        auto n2 = Node::make(glm::vec3{-1.f, -1.f, -1.f});
 
         WHEN("compared")
         {
             THEN("they do not compare equal")
             {
-                REQUIRE(n1 != n2);
-                REQUIRE(n2 != n1);
+                REQUIRE(*n1 != *n2);
+                REQUIRE(*n2 != *n1);
+                REQUIRE(!std::equal_to<>{}(n1, n2));
+                REQUIRE(!std::equal_to<>{}(n2, n1));
             }
         }
 
@@ -49,7 +53,7 @@ SCENARIO(
         {
             THEN("the hashes are different")
             {
-                auto hash = std::hash<Node>{};
+                auto hash = std::hash<Node::pointer_type>{};
 
                 REQUIRE(hash(n1) != hash(n2));
             }

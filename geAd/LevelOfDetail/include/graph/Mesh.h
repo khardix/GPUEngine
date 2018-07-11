@@ -21,7 +21,7 @@ namespace lod {
 namespace graph {
 class Mesh {
 public:
-    using NodeSet = std::unordered_set<Node>;
+    using NodeSet = std::unordered_set<Node::pointer_type>;
     using EdgeSet = std::unordered_set<DirectedEdge::pointer_type>;
     using EdgeCache = std::unordered_set<UndirectedEdge>;
 
@@ -87,7 +87,7 @@ inline const Mesh::EdgeSet &Mesh::edges() const noexcept
 }
 
 template <>
-inline const Mesh::NodeSet &Mesh::container<Node>() const noexcept
+inline const Mesh::NodeSet &Mesh::container<Node::pointer_type>() const noexcept
 {
     return m_nodes;
 }

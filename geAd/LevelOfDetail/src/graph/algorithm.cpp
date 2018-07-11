@@ -21,7 +21,7 @@ namespace graph {
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
 std::deque<DirectedEdge::pointer_type> opposite_edges(const Node &center) try {
-    if (center.edge.expired()) {
+    if (center.edge().expired()) {
         throw std::runtime_error("Sole node!");
     }
     auto result = std::deque<DirectedEdge::pointer_type>{};
@@ -44,11 +44,11 @@ std::deque<DirectedEdge::pointer_type> opposite_edges(const Node &center) try {
     };
 
     // walk until a mesh boundary or full circle
-    auto center_edge = center.edge.lock();
-    auto pivot = center_edge->target();
+    auto center_edge = center.edge().lock();
+    auto pivot = center_edge->target().lock();
     for (auto edge = center_edge->next(); edge; edge = next(edge)) {
         result.push_back(edge);
-        if (edge->target() == pivot) {  // full circle
+        if (edge->target().lock() == pivot) {  // full circle
             return result;
         }
     }
@@ -58,11 +58,11 @@ std::deque<DirectedEdge::pointer_type> opposite_edges(const Node &center) try {
         return result;
     }
 
-    pivot = result.back()->target();
+    pivot = result.back()->target().lock();
     auto center_back
         = nonstd::get<DirectedEdge::weak_type>(center_edge->neighbour()).lock();
     for (auto edge = center_back->previous().lock(); edge; edge = prev(edge)) {
-        if (edge->target() == pivot) {
+        if (edge->target().lock() == pivot) {
             return result;
         }
         result.push_front(edge);
@@ -83,15 +83,15 @@ catch (const nonstd::bad_variant_access &) {
  * @return Container of nodes adjacent to the center node.
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
-std::deque<const Node *> adjacent_nodes(
+std::deque<Node::const_weak_type> adjacent_nodes(
     const std::deque<DirectedEdge::pointer_type> &edge_ring)
 {
     auto full_circle = [](const auto &edges) -> bool {
-        return (edges.front()->previous().lock()->target())
-            == (edges.back()->target());
+        return (edges.front()->previous().lock()->target().lock())
+            == (edges.back()->target().lock());
     };
 
-    auto result = std::deque<const Node *>{};
+    auto result = std::deque<Node::const_weak_type>{};
 
     std::transform(
         std::cbegin(edge_ring),

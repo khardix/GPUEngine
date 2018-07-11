@@ -19,7 +19,8 @@ using Triangle = std::array<DirectedEdge::const_pointer_type, 3>;
 using DetachedTriangle = std::array<DirectedEdge::pointer_type, 3>;
 
 /// @brief Constructs detached Triangle from three Nodes.
-DetachedTriangle make_triangle(const std::array<const Node *, 3> &nodes);
+DetachedTriangle make_triangle(
+    const std::array<const Node::const_weak_type, 3> &nodes);
 }  // namespace graph
 }  // namespace lod
 

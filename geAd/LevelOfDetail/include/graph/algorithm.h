@@ -27,14 +27,14 @@ struct algorithm_failure : public std::runtime_error {
 std::deque<DirectedEdge::pointer_type> opposite_edges(const Node &center);
 
 /// @brief List all adjacent nodes in edge order.
-std::deque<const Node *> adjacent_nodes(
+std::deque<Node::const_weak_type> adjacent_nodes(
     const std::deque<DirectedEdge::pointer_type> &edge_ring);
 /** @overload
  * @param[in] center The center node.
  * @return Container of nodes adjacent to the center node.
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
-inline std::deque<const Node *> adjacent_nodes(const Node &center)
+inline std::deque<Node::const_weak_type> adjacent_nodes(const Node &center)
 {
     return adjacent_nodes(opposite_edges(center));
 }

@@ -17,11 +17,10 @@
 #include <nonstd/variant.hpp>
 
 #include "../util/hash_combinator.h"
+#include "Node.h"
 
 namespace lod {
 namespace graph {
-struct Node;
-
 /// @brief Half-edge with adjacency information.
 class DirectedEdge : public std::enable_shared_from_this<DirectedEdge> {
 public:
@@ -50,8 +49,8 @@ public:
     const_weak_type as_weak() const { return shared_from_this(); }
 
     /// @brief Access stored target.
-    const Node *&      target() { return m_target; }
-    const Node *const &target() const { return m_target; }
+    Node::const_weak_type &      target() { return m_target; }
+    Node::const_weak_type const &target() const { return m_target; }
     /// @brief Access stored previous edge.
     weak_type &      previous() { return m_previous; }
     const weak_type &previous() const { return m_previous; }
@@ -71,14 +70,14 @@ public:
 
 protected:
     explicit DirectedEdge(
-        const Node *target = nullptr,
-        weak_type   previous = {},
-        MaybeEdge   neighbour = weak_type{}) noexcept;
+        Node::const_weak_type target = {},
+        weak_type             previous = {},
+        MaybeEdge             neighbour = weak_type{}) noexcept;
 
 private:
-    const Node *m_target = nullptr;         ///< Target vertex.
-    weak_type   m_previous = {};            ///< Previous edge in polygon.
-    MaybeEdge   m_neighbour = weak_type{};  ///< Opposite direction half-edge.
+    Node::const_weak_type m_target = {};    ///< Target vertex.
+    weak_type             m_previous = {};  ///< Previous edge in polygon.
+    MaybeEdge m_neighbour = weak_type{};    ///< Opposite direction half-edge.
 };
 
 /// @brief Hashable canonical representation of an edge.
@@ -96,7 +95,7 @@ public:
     const DirectedEdge::pointer_type &referred() const;
 
     /// @brief Extract boundary nodes in canonical order.
-    std::pair<const Node *, const Node *> nodes() const;
+    std::pair<Node::const_weak_type, Node::const_weak_type> nodes() const;
 
 private:
     DirectedEdge::pointer_type m_edge;  ///< The wrapped half-edge.
@@ -118,7 +117,8 @@ struct hash<lod::graph::UndirectedEdge> {
     return_type operator()(const argument_type &edge) const noexcept
     {
         const auto nodes = edge.nodes();
-        return lod::util::hash_combinator(0, nodes.first, nodes.second);
+        return lod::util::hash_combinator(
+            0, nodes.first.lock(), nodes.second.lock());
     }
 };
 }  // namespace std
@@ -126,7 +126,9 @@ struct hash<lod::graph::UndirectedEdge> {
 namespace lod {
 namespace graph {
 inline DirectedEdge::DirectedEdge(
-    const Node *target, weak_type previous, MaybeEdge neighbour) noexcept
+    Node::const_weak_type target,
+    weak_type             previous,
+    MaybeEdge             neighbour) noexcept
     : m_target(std::move_if_noexcept(target)),
       m_previous(std::move_if_noexcept(previous)),
       m_neighbour(std::move_if_noexcept(neighbour))
@@ -204,12 +206,15 @@ inline UndirectedEdge::UndirectedEdge(DirectedEdge::pointer_type edge) noexcept
  * @returns Edge's nodes in memory order.
  * @throws std::runtime_error Edge is not part of a triangle.
  */
-inline std::pair<const Node *, const Node *> UndirectedEdge::nodes() const
+inline std::pair<Node::const_weak_type, Node::const_weak_type>
+UndirectedEdge::nodes() const
 {
+    static const auto cmp = std::owner_less<Node::const_weak_type>{};
+
     if (auto prev = m_edge->previous().lock()) {
         return std::make_pair(
-            std::min(m_edge->target(), prev->target()),
-            std::max(m_edge->target(), prev->target()));
+            std::min(m_edge->target(), prev->target(), cmp),
+            std::max(m_edge->target(), prev->target(), cmp));
     }
     throw std::runtime_error("Unconnected edge!");
 }
@@ -218,7 +223,11 @@ inline std::pair<const Node *, const Node *> UndirectedEdge::nodes() const
 inline bool UndirectedEdge::operator==(const UndirectedEdge &other) const
     noexcept
 {
-    return nodes() == other.nodes();
+    const auto &lhs = nodes();
+    const auto &rhs = other.nodes();
+
+    return lhs.first.lock() == rhs.first.lock()
+        && lhs.second.lock() == rhs.second.lock();
 }
 inline bool UndirectedEdge::operator!=(const UndirectedEdge &other) const
     noexcept

@@ -9,10 +9,10 @@ SCENARIO(
     using namespace lod::graph;
 
     // clang-format off
-    auto v_a = Node{}, v_b = Node{}, v_c = Node{};
-    auto prev_a = DirectedEdge::make(&v_a), e_a = DirectedEdge::make(&v_b, prev_a);  // A→B
-    auto prev_b = DirectedEdge::make(&v_b), e_b = DirectedEdge::make(&v_a, prev_b);  // B→A
-    auto prev_c = DirectedEdge::make(&v_c), e_c = DirectedEdge::make(&v_a, prev_c);  // C→A
+    auto v_a = Node::make(), v_b = Node::make(), v_c = Node::make();
+    auto prev_a = DirectedEdge::make(v_a), e_a = DirectedEdge::make(v_b, prev_a);  // A→B
+    auto prev_b = DirectedEdge::make(v_b), e_b = DirectedEdge::make(v_a, prev_b);  // B→A
+    auto prev_c = DirectedEdge::make(v_c), e_c = DirectedEdge::make(v_a, prev_c);  // C→A
     // clang-format on
 
     GIVEN("two identical edges")

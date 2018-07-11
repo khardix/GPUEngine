@@ -12,7 +12,7 @@
  * @returns Detached triangle.
  */
 lod::graph::DetachedTriangle lod::graph::make_triangle(
-    const std::array<const Node *, 3> &nodes)
+    const std::array<const Node::const_weak_type, 3> &nodes)
 {
     auto result = DetachedTriangle{};
     auto previous = DirectedEdge::pointer_type(nullptr);

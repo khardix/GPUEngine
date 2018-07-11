@@ -18,17 +18,17 @@ lod::graph::Mesh make_mesh()
     using namespace lod::graph;
 
     auto  nodes = Mesh::NodeSet{};
-    auto &C = *(nodes.insert(Node{{0.f, 0.f, 0.f}}).first);
-    auto &X = *(nodes.insert(Node{{1.f, 0.f, 0.f}}).first);
-    auto &Y = *(nodes.insert(Node{{0.f, 1.f, 0.f}}).first);
-    auto &Z = *(nodes.insert(Node{{0.f, 0.f, 1.f}}).first);
-    auto &W = *(nodes.insert(Node{{2.f, 0.f, 0.f}}).first);
+    auto &C = *(nodes.insert(Node::make(glm::vec3{0.f, 0.f, 0.f})).first);
+    auto &X = *(nodes.insert(Node::make(glm::vec3{1.f, 0.f, 0.f})).first);
+    auto &Y = *(nodes.insert(Node::make(glm::vec3{0.f, 1.f, 0.f})).first);
+    auto &Z = *(nodes.insert(Node::make(glm::vec3{0.f, 0.f, 1.f})).first);
+    auto &W = *(nodes.insert(Node::make(glm::vec3{2.f, 0.f, 0.f})).first);
 
-    auto CXY = make_triangle({&C, &X, &Y});
-    auto CYZ = make_triangle({&C, &Y, &Z});
-    auto CZX = make_triangle({&C, &Z, &X});
-    auto XWY = make_triangle({&X, &W, &Y});
-    auto XZW = make_triangle({&X, &Z, &W});
+    auto CXY = make_triangle({C, X, Y});
+    auto CYZ = make_triangle({C, Y, Z});
+    auto CZX = make_triangle({C, Z, X});
+    auto XWY = make_triangle({X, W, Y});
+    auto XZW = make_triangle({X, Z, W});
 
     // neighbours
     CXY[0]->neighbour() = CYZ[1];
@@ -50,11 +50,11 @@ lod::graph::Mesh make_mesh()
     XZW[0]->neighbour() = XWY[1];
 
     // emanating edges
-    C.edge = CYZ[1];
-    X.edge = CZX[0];
-    Y.edge = CXY[0];
-    Z.edge = CYZ[0];
-    W.edge = XZW[0];
+    C->edge() = CYZ[1];
+    X->edge() = CZX[0];
+    Y->edge() = CXY[0];
+    Z->edge() = CYZ[0];
+    W->edge() = XZW[0];
 
     auto edges = Mesh::EdgeSet{};
     std::move(CXY.begin(), CXY.end(), std::inserter(edges, edges.end()));
@@ -69,30 +69,30 @@ lod::graph::Mesh make_mesh()
 lod::graph::DirectedEdge::pointer_type regular_edge(
     const lod::graph::Mesh &mesh)
 {
-    const auto X = lod::graph::Node{{1.f, 0.f, 0.f}};
+    const auto X = lod::graph::Node::make(glm::vec3{1.f, 0.f, 0.f});
     auto       X_it = mesh.nodes().find(X);
     REQUIRE(X_it != mesh.nodes().end());
 
-    return X_it->edge.lock();
+    return (*X_it)->edge().lock();
 }
 
 lod::graph::DirectedEdge::pointer_type semiborder_edge(
     const lod::graph::Mesh &mesh)
 {
-    const auto Y = lod::graph::Node{{0.f, 1.f, 0.f}};
+    const auto Y = lod::graph::Node::make(glm::vec3{0.f, 1.f, 0.f});
     auto       Y_it = mesh.nodes().find(Y);
     REQUIRE(Y_it != mesh.nodes().end());
 
-    return Y_it->edge.lock();
+    return (*Y_it)->edge().lock();
 }
 
 lod::graph::DirectedEdge::pointer_type border_edge(const lod::graph::Mesh &mesh)
 {
-    const auto Y = lod::graph::Node{{0.f, 1.f, 0.f}};
+    const auto Y = lod::graph::Node::make(glm::vec3{0.f, 1.f, 0.f});
     auto       Y_it = mesh.nodes().find(Y);
     REQUIRE(Y_it != mesh.nodes().end());
 
-    for (auto &&edge : lod::graph::emanating_edges(*Y_it)) {
+    for (auto &&edge : lod::graph::emanating_edges(**Y_it)) {
         if (edge->boundary()) {
             return edge;
         }
@@ -118,24 +118,24 @@ SCENARIO(
     {
         using lod::oper::common::EdgeCollapse;
 
-        auto O = graph::Node{{0.f, 0.f, 0.f}};
-        auto T = graph::Node{{1.f, 0.f, 0.f}};
-        auto C = graph::Node{{0.f, 1.f, 0.f}};
+        auto O = graph::Node::make(glm::vec3{0.f, 0.f, 0.f});
+        auto T = graph::Node::make(glm::vec3{1.f, 0.f, 0.f});
+        auto C = graph::Node::make(glm::vec3{0.f, 1.f, 0.f});
 
-        auto A = graph::Node{{0.f, -1.f, 0.f}};
-        auto B = graph::Node{{0.f, 1.f, 1.f}};
+        auto A = graph::Node::make(glm::vec3{0.f, -1.f, 0.f});
+        auto B = graph::Node::make(glm::vec3{0.f, 1.f, 1.f});
 
-        auto triangle = graph::make_triangle({&O, &T, &A});
+        auto triangle = graph::make_triangle({O, T, A});
 
         WHEN("Measuring transformation for folds")
         {
             THEN("Potential fold is detected")
             {
-                REQUIRE(EdgeCollapse::would_fold(*triangle[1], C, A));
+                REQUIRE(EdgeCollapse::would_fold(*triangle[1], *C, *A));
             }
             THEN("Small change passes")
             {
-                REQUIRE(!EdgeCollapse::would_fold(*triangle[1], C, B));
+                REQUIRE(!EdgeCollapse::would_fold(*triangle[1], *C, *B));
             }
         }
     }
@@ -147,9 +147,9 @@ SCENARIO(
 
         WHEN("A regular edge is collapsed")
         {
-            auto  operation = HalfOperation{regular_edge(mesh), 0.f};
-            auto &origin
-                = *(operation.element().get()->previous().lock()->target());
+            auto operation = HalfOperation{regular_edge(mesh), 0.f};
+            auto origin = std::const_pointer_cast<lod::graph::Node>(
+                operation.element().get()->previous().lock()->target().lock());
             collapse(mesh, operation);
 
             THEN("The mesh contains expected number of elements")
@@ -174,26 +174,27 @@ SCENARIO(
             THEN("All nodes have valid edge reference")
             {
                 auto valid_ref = [&mesh](const auto &node) {
-                    return mesh.edges().count(node.edge.lock()) > 0;
+                    return mesh.edges().count(node->edge().lock()) > 0;
                 };
 
                 for (const auto &node : mesh.nodes()) {
-                    CAPTURE(node.position);
+                    CAPTURE(node->position());
                     REQUIRE(valid_ref(node));
                 }
             }
             THEN("All edges point to valid nodes")
             {
                 auto valid_target = [&mesh](const auto &edge) {
-                    auto target_ptr = edge->target();
-                    auto mesh_it = mesh.nodes().find(*target_ptr);
+                    auto target = std::const_pointer_cast<lod::graph::Node>(
+                        edge->target().lock());
+                    auto mesh_it = mesh.nodes().find(target);
                     if (mesh_it == mesh.nodes().end()) {
                         FAIL("Node is not known to mesh");
                         return false;
                     }
-                    auto mesh_ptr = &*mesh_it;
+                    auto &mesh_reference = *mesh_it;
 
-                    return target_ptr == mesh_ptr;
+                    return target == mesh_reference;
                 };
 
                 REQUIRE(std::all_of(
@@ -235,11 +236,14 @@ SCENARIO(
 
         WHEN("A regular edge is collapsed")
         {
-            auto hinted = graph::Node{{0.0f, 0.f, 0.f}};
+            auto hinted = graph::Node::make(glm::vec3{0.0f, 0.f, 0.f});
             auto collapsed = regular_edge(mesh);
             auto original = std::make_pair(
-                *collapsed->target(), *collapsed->previous().lock()->target());
-            auto operation = FullOperation{collapsed, 0.f, hinted.position};
+                std::const_pointer_cast<graph::Node>(
+                    collapsed->target().lock()),
+                std::const_pointer_cast<graph::Node>(
+                    collapsed->previous().lock()->target().lock()));
+            auto operation = FullOperation{collapsed, 0.f, hinted->position()};
             collapse(mesh, operation);
 
             THEN("The mesh contains expected number of elements")
@@ -263,36 +267,37 @@ SCENARIO(
             }
             THEN("Mesh does not contain the original nodes")
             {
-                if (hinted != original.first) {
+                if (*hinted != *original.first) {
                     REQUIRE(mesh.nodes().count(original.first) == 0);
                 }
-                if (hinted != original.second) {
+                if (*hinted != *original.second) {
                     REQUIRE(mesh.nodes().count(original.second) == 0);
                 }
             }
             THEN("All nodes have valid edge reference")
             {
                 auto valid_ref = [&mesh](const auto &node) {
-                    return mesh.edges().count(node.edge.lock()) > 0;
+                    return mesh.edges().count(node->edge().lock()) > 0;
                 };
 
                 for (const auto &node : mesh.nodes()) {
-                    CAPTURE(node.position);
+                    CAPTURE(node->position());
                     REQUIRE(valid_ref(node));
                 }
             }
             THEN("All edges point to valid nodes")
             {
                 auto valid_target = [&mesh](const auto &edge) {
-                    auto target_ptr = edge->target();
-                    auto mesh_it = mesh.nodes().find(*target_ptr);
+                    auto target = std::const_pointer_cast<graph::Node>(
+                        edge->target().lock());
+                    auto mesh_it = mesh.nodes().find(target);
                     if (mesh_it == mesh.nodes().end()) {
                         FAIL("Node is not known to mesh");
                         return false;
                     }
-                    auto mesh_ptr = &*mesh_it;
+                    auto &mesh_reference = *mesh_it;
 
-                    return target_ptr == mesh_ptr;
+                    return target == mesh_reference;
                 };
 
                 REQUIRE(std::all_of(

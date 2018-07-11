@@ -19,16 +19,16 @@ SCENARIO(
 
     GIVEN("Three nodes defining a plane")
     {
-        auto nodes = std::array<Node, 3>{
-            Node{{0.f, 0.f, 0.f}},
-            Node{{0.f, 1.f, 0.f}},
-            Node{{0.f, 0.f, 1.f}},
+        auto nodes = std::array<Node::pointer_type, 3>{
+            Node::make(glm::vec3{0.f, 0.f, 0.f}),
+            Node::make(glm::vec3{0.f, 1.f, 0.f}),
+            Node::make(glm::vec3{0.f, 0.f, 1.f}),
         };
 
         auto triangle = std::array<DirectedEdge::const_pointer_type, 3>{
-            DirectedEdge::make(&nodes[0]),
-            DirectedEdge::make(&nodes[1]),
-            DirectedEdge::make(&nodes[2]),
+            DirectedEdge::make(nodes[0]),
+            DirectedEdge::make(nodes[1]),
+            DirectedEdge::make(nodes[2]),
         };
 
         WHEN("A plane vector is calculated")
@@ -45,24 +45,24 @@ SCENARIO(
 
     GIVEN("A node with surrounding triangles")
     {
-        auto C = Node{{0.f, 0.f, 0.f}};
-        auto X = Node{{1.f, 0.f, 0.f}};
-        auto Y = Node{{0.f, 1.f, 0.f}};
-        auto Z = Node{{0.f, 0.f, 1.f}};
+        auto C = Node::make(glm::vec3{0.f, 0.f, 0.f});
+        auto X = Node::make(glm::vec3{1.f, 0.f, 0.f});
+        auto Y = Node::make(glm::vec3{0.f, 1.f, 0.f});
+        auto Z = Node::make(glm::vec3{0.f, 0.f, 1.f});
 
-        auto CX = DirectedEdge::make(&X);
-        auto XY = DirectedEdge::make(&Y, CX);
-        auto YC = DirectedEdge::make(&C, XY);
+        auto CX = DirectedEdge::make(X);
+        auto XY = DirectedEdge::make(Y, CX);
+        auto YC = DirectedEdge::make(C, XY);
         CX->previous() = YC;
 
-        auto CY = DirectedEdge::make(&Y);
-        auto YZ = DirectedEdge::make(&Z, CY);
-        auto ZC = DirectedEdge::make(&C, YZ);
+        auto CY = DirectedEdge::make(Y);
+        auto YZ = DirectedEdge::make(Z, CY);
+        auto ZC = DirectedEdge::make(C, YZ);
         CY->previous() = ZC;
 
-        auto CZ = DirectedEdge::make(&Z);
-        auto ZX = DirectedEdge::make(&X, CZ);
-        auto XC = DirectedEdge::make(&C, ZX);
+        auto CZ = DirectedEdge::make(Z);
+        auto ZX = DirectedEdge::make(X, CZ);
+        auto XC = DirectedEdge::make(C, ZX);
         CZ->previous() = XC;
 
         // clang-format off
@@ -71,12 +71,12 @@ SCENARIO(
         CZ->neighbour() = ZC; ZC->neighbour() = CZ;
         // clang-format on
 
-        C.edge = CX;
+        C->edge() = CX;
 
         WHEN("A quadric is calculated")
         {
             const auto qem = QEM<FullEdgeTag>();
-            const auto quadric = qem.quadric(C);
+            const auto quadric = qem.quadric(*C);
 
             THEN("It provides expected results")
             {
@@ -93,7 +93,7 @@ SCENARIO(
             }
             THEN("The node's error is 0")
             {
-                auto error = QEM<FullEdgeTag>::error(quadric, C.position);
+                auto error = QEM<FullEdgeTag>::error(quadric, C->position());
                 REQUIRE(error == 0.0);
             }
         }

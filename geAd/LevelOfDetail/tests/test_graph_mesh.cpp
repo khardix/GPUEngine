@@ -87,7 +87,7 @@ SCENARIO(
                 auto begin = std::cbegin(graph_mesh.nodes());
                 auto end = std::cend(graph_mesh.nodes());
                 auto predicate = [](const Mesh::NodeSet::value_type &node) {
-                    return !node.edge.expired();
+                    return !node->edge().expired();
                 };
 
                 REQUIRE(std::all_of(begin, end, predicate));

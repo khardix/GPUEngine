@@ -78,8 +78,8 @@ inline auto QEM<operation::FullEdgeTag>::operator()(
     const element_type &edge) const -> result_type
 {
     // calculate quadric of the new node: Q = Q1 + Q2
-    const auto &nodes
-        = std::make_pair(edge->target(), edge->previous().lock()->target());
+    const auto &nodes = std::make_pair(
+        edge->target().lock(), edge->previous().lock()->target().lock());
     auto qmat = quadric(*std::get<0>(nodes)) + quadric(*std::get<1>(nodes));
 
     const auto pos = position(qmat);
@@ -93,13 +93,13 @@ template <>
 inline auto QEM<operation::HalfEdgeTag>::operator()(
     const element_type &edge) const -> result_type
 {
-    const auto &nodes
-        = std::make_pair(edge->target(), edge->previous().lock()->target());
+    const auto &nodes = std::make_pair(
+        edge->target().lock(), edge->previous().lock()->target().lock());
     auto qmat = quadric(*std::get<0>(nodes)) + quadric(*std::get<1>(nodes));
 
     // calculate error of collapse to the target node
-    const auto err = error(qmat, edge->target()->position);
-    return result_type(edge, err, edge->target()->position);
+    const auto err = error(qmat, edge->target().lock()->position());
+    return result_type(edge, err, edge->target().lock()->position());
 }
 
 extern template class QEM<operation::FullEdgeTag>;

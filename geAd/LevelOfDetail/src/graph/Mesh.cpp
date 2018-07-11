@@ -48,18 +48,18 @@ void lod::graph::Mesh::insert(
     using invalid = DirectedEdge::invalid;
 
     // insert nodes
-    auto nodes = std::array<const Node *, 3>{
-        &*(m_nodes.insert(Node{glm::make_vec3(triangle[0])}).first),
-        &*(m_nodes.insert(Node{glm::make_vec3(triangle[1])}).first),
-        &*(m_nodes.insert(Node{glm::make_vec3(triangle[2])}).first),
+    auto nodes = std::array<const Node::const_weak_type, 3>{
+        *(m_nodes.insert(Node::make(glm::make_vec3(triangle[0]))).first),
+        *(m_nodes.insert(Node::make(glm::make_vec3(triangle[1]))).first),
+        *(m_nodes.insert(Node::make(glm::make_vec3(triangle[2]))).first),
     };
 
     // prepare edges
     auto edges = make_triangle(nodes);
     // attach nodes to edges
     std::for_each(std::begin(edges), std::end(edges), [](const auto &edge) {
-        if (edge->target()->edge.expired()) {
-            edge->target()->edge = edge->next();
+        if (edge->target().lock()->edge().expired()) {
+            edge->target().lock()->edge() = edge->next();
         }
     });
 
@@ -163,11 +163,13 @@ lod::graph::Mesh::operator ge::sg::Mesh() const
     const auto start_pos = raw_pos;
     for (const auto &node : m_nodes) {
         // save index
-        index_map[&node] = static_cast<unsigned>(
+        index_map[node.get()] = static_cast<unsigned>(
             std::distance(start_pos, raw_pos) / positions->numComponents);
         // copy position data
         raw_pos = std::copy_n(
-            glm::value_ptr(node.position), positions->numComponents, raw_pos);
+            glm::value_ptr(node->position()),
+            positions->numComponents,
+            raw_pos);
     }
     result.attributes.push_back(positions);
 
@@ -181,7 +183,8 @@ lod::graph::Mesh::operator ge::sg::Mesh() const
             continue;
         }
         for (const auto &triangle_edge : edge->triangle_edges()) {
-            *(raw_idx++) = index_map.at(triangle_edge->target());  // NOLINT
+            *(raw_idx++)
+                = index_map.at(triangle_edge->target().lock().get());  // NOLINT
             edge_set.insert(triangle_edge.get());
         }
     }

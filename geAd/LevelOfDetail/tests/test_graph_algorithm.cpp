@@ -15,19 +15,18 @@ SCENARIO(
 
     GIVEN("Non-boundary patch")
     {
-        const auto center = Node{};
-        const auto x = Node{glm::vec3{1.f, 0.f, 0.f}};
-        const auto y = Node{glm::vec3{0.f, 1.f, 0.f}};
-        const auto z = Node{glm::vec3{0.f, 0.f, 1.f}};
+        const auto center = Node::make();
+        const auto x = Node::make(glm::vec3{1.f, 0.f, 0.f});
+        const auto y = Node::make(glm::vec3{0.f, 1.f, 0.f});
+        const auto z = Node::make(glm::vec3{0.f, 0.f, 1.f});
 
         auto edges = std::vector<DirectedEdge::pointer_type>{};
-        auto pairs = {std::make_pair(&x, &y),
-                      std::make_pair(&y, &z),
-                      std::make_pair(&z, &x)};
+        auto pairs = {
+            std::make_pair(x, y), std::make_pair(y, z), std::make_pair(z, x)};
         for (auto &&p : pairs) {
             auto emanating = DirectedEdge::make(p.first);
-            if (center.edge.expired()) {
-                center.edge = emanating;
+            if (center->edge().expired()) {
+                center->edge() = emanating;
             }
             if (!edges.empty()) {
                 emanating->neighbour() = edges.back();
@@ -35,7 +34,7 @@ SCENARIO(
             }
 
             auto opposite = DirectedEdge::make(p.second, emanating);
-            auto incoming = DirectedEdge::make(&center, opposite);
+            auto incoming = DirectedEdge::make(center, opposite);
 
             emanating->previous() = incoming;
 
@@ -48,7 +47,7 @@ SCENARIO(
 
         WHEN("Extracting adjacent nodes")
         {
-            const auto adjacent = adjacent_nodes(center);
+            const auto adjacent = adjacent_nodes(*center);
 
             THEN("All adjacent nodes are extracted")
             {
@@ -57,31 +56,38 @@ SCENARIO(
                 const auto begin = std::cbegin(adjacent);
                 const auto end = std::cend(adjacent);
 
-                REQUIRE(std::find(begin, end, &x) != end);
-                REQUIRE(std::find(begin, end, &y) != end);
-                REQUIRE(std::find(begin, end, &z) != end);
+                const auto x_pred
+                    = [&x](const auto &adj) { return adj.lock() == x; };
+                const auto y_pred
+                    = [&y](const auto &adj) { return adj.lock() == y; };
+                const auto z_pred
+                    = [&z](const auto &adj) { return adj.lock() == z; };
+
+                REQUIRE(std::find_if(begin, end, x_pred) != end);
+                REQUIRE(std::find_if(begin, end, y_pred) != end);
+                REQUIRE(std::find_if(begin, end, z_pred) != end);
             }
         }
     }
 
     GIVEN("A single triangle")
     {
-        const auto x = Node{glm::vec3{1.f, 0.f, 0.f}};
-        const auto y = Node{glm::vec3{0.f, 1.f, 0.f}};
-        const auto z = Node{glm::vec3{0.f, 0.f, 1.f}};
+        const auto x = Node::make(glm::vec3{1.f, 0.f, 0.f});
+        const auto y = Node::make(glm::vec3{0.f, 1.f, 0.f});
+        const auto z = Node::make(glm::vec3{0.f, 0.f, 1.f});
 
-        auto e_x = DirectedEdge::make(&x);
-        auto e_y = DirectedEdge::make(&y, e_x);
-        auto e_z = DirectedEdge::make(&z, e_y);
+        auto e_x = DirectedEdge::make(x);
+        auto e_y = DirectedEdge::make(y, e_x);
+        auto e_z = DirectedEdge::make(z, e_y);
         e_x->previous() = e_z;
 
-        x.edge = e_y;
-        y.edge = e_z;
-        z.edge = e_x;
+        x->edge() = e_y;
+        y->edge() = e_z;
+        z->edge() = e_x;
 
         WHEN("Adjacent nodes are queried")
         {
-            const auto adjacent = adjacent_nodes(x);
+            const auto adjacent = adjacent_nodes(*x);
 
             THEN("Both other nodes are extracted")
             {
@@ -90,8 +96,13 @@ SCENARIO(
                 const auto begin = std::cbegin(adjacent);
                 const auto end = std::cend(adjacent);
 
-                REQUIRE(std::find(begin, end, &y) != end);
-                REQUIRE(std::find(begin, end, &z) != end);
+                const auto y_pred
+                    = [&y](const auto &adj) { return adj.lock() == y; };
+                const auto z_pred
+                    = [&z](const auto &adj) { return adj.lock() == z; };
+
+                REQUIRE(std::find_if(begin, end, y_pred) != end);
+                REQUIRE(std::find_if(begin, end, z_pred) != end);
             }
         }
     }

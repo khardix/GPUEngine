@@ -28,7 +28,9 @@ const glm::vec4 lod::metric::QEM<Tag>::plane(
         std::cbegin(triangle),
         std::cend(triangle),
         std::begin(node_positions),
-        [](const auto &edge) { return &(edge->target()->position); });
+        [](const auto &edge) {
+            return std::addressof(edge->target().lock()->position());
+        });
 
     const auto &coeff = glm::cross(
         *std::get<1>(node_positions) - *std::get<0>(node_positions),
@@ -48,8 +50,8 @@ template <typename Tag>
 const glm::mat4 &lod::metric::QEM<Tag>::quadric(
     const lod::graph::Node &node) const
 {
-    if (m_vertex_cache.count(node.position) != 0) {
-        return m_vertex_cache.at(node.position);
+    if (m_vertex_cache.count(node.position()) != 0) {
+        return m_vertex_cache[node.position()];
     }
 
     const auto triangles = graph::adjacent_triangles(node);
@@ -65,7 +67,7 @@ const glm::mat4 &lod::metric::QEM<Tag>::quadric(
             return glm::outerProduct(p, p);
         });
 
-    return m_vertex_cache[node.position] = std::accumulate(
+    return m_vertex_cache[node.position()] = std::accumulate(
                std::cbegin(planes), std::cend(planes), glm::mat4(0.f));
 }
 
