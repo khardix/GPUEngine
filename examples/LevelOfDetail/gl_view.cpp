@@ -3,6 +3,7 @@
  * @author Jan Staněk <xstane32@stud.fit.vutbr.cz>
  */
 
+#include <cmath>
 #include <stdexcept>
 #include <vector>
 
@@ -176,9 +177,13 @@ catch (const std::runtime_error &exc) {
 /** Selects one from the generated levels to display.
  * @param[in] index The index of the level to select.
  */
-void GLView::Renderer::select_level(unsigned index)
+void GLView::Renderer::select_level(float index)
 {
-    m_scene.select_level(index);
+    auto level = 0.f;
+    auto morph = std::modf(index, &level);
+
+    m_scene.select_level(std::max(0, static_cast<int>(level)));
+    m_visualization->morph(std::abs(morph));
 }
 
 /** Translate a rotation to a quaternion.

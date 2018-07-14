@@ -34,6 +34,9 @@ public:
     /// @brief Set projection transformation.
     void projection_matrix(const glm::mat4 &matrix) noexcept;
 
+    /// @brief Set the amount of morphing to apply.
+    void morph(const float &magnitude) noexcept;
+
     /// @brief Draw a scene using provided context.
     void draw(ge::gl::Context &context, std::shared_ptr<ge::sg::Scene> scene);
 
@@ -66,5 +69,11 @@ inline void UniformVisualization::projection_matrix(
     const glm::mat4 &matrix) noexcept
 {
     m_program->setMatrix4fv("projection", glm::value_ptr(matrix));
+}
+
+/** @param[in] magnitude New morphing magnitude. */
+inline void UniformVisualization::morph(const float &magnitude) noexcept
+{
+    m_program->set1f("morph_magnitude", magnitude);
 }
 // Inline and template members }}}

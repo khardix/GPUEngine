@@ -46,7 +46,7 @@ signals:
     void model_selected(const QUrl &url);
 
     /// @brief Notify the renderer of level change.
-    void level_selected(unsigned index);
+    void level_selected(float index);
 
     /// @brief Notify the renderer to generate simplified levels.
     void generate_levels(unsigned level_count);
@@ -110,7 +110,7 @@ public slots:
     /// @brief Generate simplified variants.
     void generate_levels(unsigned level_count);
     /// @brief Select new scene level.
-    void select_level(unsigned index);
+    void select_level(float index);
 
 protected:
     /// @brief Initialize OpenGL context.

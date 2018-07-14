@@ -113,7 +113,7 @@ Window {
             Slider {
                 id: level_selection
                 maximumValue: 0.0
-                stepSize: 1.0
+                stepSize: 0.1
                 tickmarksEnabled: true
 
                 Layout.column: 0
@@ -123,7 +123,6 @@ Window {
                 Layout.fillHeight: true
 
                 onValueChanged: {
-                    console.log(level_selection.value);
                     opengl_view.level_selected(level_selection.value);
                 }
             }

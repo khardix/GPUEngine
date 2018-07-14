@@ -17,9 +17,14 @@ const std::string UniformVisualization::VERTEX_CODE = R"vertex(
 #version 430 core
 
 layout (location = 0) in vec3 model_vertex;
+layout (location = 1) in vec3 morph_target;
+
+uniform float morph_magnitude = 0.0;
 
 void main() {
-    gl_Position = vec4(model_vertex, 1.0);
+    vec3 direction = morph_target - model_vertex;
+
+    gl_Position = vec4(model_vertex + direction * morph_magnitude, 1.0);
 }
 )vertex";
 
@@ -129,6 +134,9 @@ GLint UniformVisualization::semantic_binding(
 
         case Semantic::position:
             return 0;
+
+        case Semantic::unknown:
+            return 1;
     }
 }
 
@@ -146,8 +154,8 @@ std::unique_ptr<ge::gl::VertexArray> UniformVisualization::convert(
 
     for (const auto &descriptor : mesh.attributes) {
         auto buffer = std::make_unique<ge::gl::Buffer>(
-            static_cast<const GLsizeiptr>(descriptor->size),
-            static_cast<const GLvoid *>(descriptor->data.get()));
+            static_cast<GLsizeiptr>(descriptor->size),
+            static_cast<GLvoid *>(descriptor->data.get()));
 
         if (descriptor->semantic == Semantic::indices) {
             result->addElementBuffer(std::move(buffer));
@@ -160,11 +168,11 @@ std::unique_ptr<ge::gl::VertexArray> UniformVisualization::convert(
 
         result->addAttrib(
             std::move(buffer),
-            static_cast<const GLuint>(binding),
-            static_cast<const GLint>(descriptor->numComponents),
+            static_cast<GLuint>(binding),
+            static_cast<GLint>(descriptor->numComponents),
             util::glsg::translate(descriptor->type),
-            static_cast<const GLsizei>(descriptor->stride),
-            static_cast<const GLintptr>(descriptor->offset));
+            static_cast<GLsizei>(descriptor->stride),
+            static_cast<GLintptr>(descriptor->offset));
     }
 
     return std::move(result);
