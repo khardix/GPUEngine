@@ -70,35 +70,33 @@ public:
         graph::Mesh &mesh, const ConditionType &condition) const;
     template <typename ConditionType>
     ge::sg::Mesh operator()(
-        const ge::sg::Mesh &mesh, const ConditionType &condition) const;
+        ge::sg::Mesh &mesh, const ConditionType &condition) const;
     template <typename ConditionType>
     std::shared_ptr<ge::sg::Mesh> operator()(
-        const std::shared_ptr<const ge::sg::Mesh> &mesh,
-        const ConditionType &                      condition) const;
+        const std::shared_ptr<ge::sg::Mesh> &mesh,
+        const ConditionType &                condition) const;
     template <typename InputIt, typename OutputIt>
     OutputIt operator()(
-        const ge::sg::Mesh &mesh,
-        InputIt             condition_begin,
-        InputIt             condition_end,
-        OutputIt            destination_begin) const;
+        ge::sg::Mesh &mesh,
+        InputIt       condition_begin,
+        InputIt       condition_end,
+        OutputIt      destination_begin) const;
     template <typename InputIt, typename OutputIt>
     OutputIt operator()(
-        const std::shared_ptr<const ge::sg::Mesh> &mesh,
-        InputIt                                    condition_begin,
-        InputIt                                    condition_end,
-        OutputIt                                   destination_begin) const;
+        const std::shared_ptr<ge::sg::Mesh> &mesh,
+        InputIt                              condition_begin,
+        InputIt                              condition_end,
+        OutputIt                             destination_begin) const;
 
     /// @brief Create regular series of simplified variants of the input mesh.
     template <typename OutputIt>
     OutputIt operator()(
-        const ge::sg::Mesh &mesh,
-        size_type           num_variants,
-        OutputIt            out_begin) const;
+        ge::sg::Mesh &mesh, size_type num_variants, OutputIt out_begin) const;
     template <typename OutputIt>
     OutputIt operator()(
-        const std::shared_ptr<const ge::sg::Mesh> &mesh,
-        size_type                                  num_variants,
-        OutputIt                                   out_begin) const;
+        const std::shared_ptr<ge::sg::Mesh> &mesh,
+        size_type                            num_variants,
+        OutputIt                             out_begin) const;
 
 protected:
     /// @brief Initialize the internal state for new mesh processing.
@@ -257,13 +255,13 @@ inline graph::Mesh &LazySelection<T, M, O>::operator()(
 template <typename T, template <class> class M, template <class> class O>
 template <typename ConditionType>
 inline ge::sg::Mesh LazySelection<T, M, O>::operator()(
-    const ge::sg::Mesh &mesh, const ConditionType &condition) const
+    ge::sg::Mesh &mesh, const ConditionType &condition) const
 {
     auto graph = graph::Mesh(mesh);
 
     operator()(graph, condition);
-
-    return static_cast<ge::sg::Mesh>(graph);
+    m_state->update_geomorph(mesh);
+    return m_state->export_mesh();
 }
 
 /** @overload
@@ -274,14 +272,10 @@ inline ge::sg::Mesh LazySelection<T, M, O>::operator()(
 template <typename T, template <class> class M, template <class> class O>
 template <typename ConditionType>
 inline std::shared_ptr<ge::sg::Mesh> LazySelection<T, M, O>::operator()(
-    const std::shared_ptr<const ge::sg::Mesh> &mesh,
-    const ConditionType &                      condition) const
+    const std::shared_ptr<ge::sg::Mesh> &mesh,
+    const ConditionType &                condition) const
 {
-    auto graph = graph::Mesh(*mesh);
-
-    operator()(graph, condition);
-
-    return std::make_shared<ge::sg::Mesh>(static_cast<ge::sg::Mesh>(graph));
+    return std::make_shared<ge::sg::Mesh>(operator()(*mesh, condition));
 }
 
 /** @overload
@@ -303,10 +297,10 @@ inline std::shared_ptr<ge::sg::Mesh> LazySelection<T, M, O>::operator()(
 template <typename T, template <class> class M, template <class> class O>
 template <typename InputIt, typename OutputIt>
 OutputIt LazySelection<T, M, O>::operator()(
-    const ge::sg::Mesh &mesh,
-    InputIt             condition_begin,
-    InputIt             condition_end,
-    OutputIt            destination_begin) const
+    ge::sg::Mesh &mesh,
+    InputIt       condition_begin,
+    InputIt       condition_end,
+    OutputIt      destination_begin) const
 {
     auto graph = graph::Mesh(mesh);
     initialize(graph);
@@ -321,9 +315,14 @@ OutputIt LazySelection<T, M, O>::operator()(
         [this](auto &cond) { return convert_condition(cond); });
 
     // Decimate
+    auto previous = std::addressof(mesh);
     for (const auto &step : steps) {
         decimate(step);
-        *destination_begin++ = static_cast<ge::sg::Mesh>(m_state->mesh());
+        m_state->update_geomorph(*previous);
+        auto current = m_state->export_mesh();
+
+        previous = std::addressof(current);
+        *destination_begin++ = std::move(current);
     }
 
     return destination_begin;
@@ -341,10 +340,10 @@ OutputIt LazySelection<T, M, O>::operator()(
 template <typename T, template <class> class M, template <class> class O>
 template <typename InputIt, typename OutputIt>
 OutputIt LazySelection<T, M, O>::operator()(
-    const std::shared_ptr<const ge::sg::Mesh> &mesh,
-    InputIt                                    condition_begin,
-    InputIt                                    condition_end,
-    OutputIt                                   destination_begin) const
+    const std::shared_ptr<ge::sg::Mesh> &mesh,
+    InputIt                              condition_begin,
+    InputIt                              condition_end,
+    OutputIt                             destination_begin) const
 {
     auto graph = graph::Mesh(*mesh);
     initialize(graph);
@@ -359,10 +358,14 @@ OutputIt LazySelection<T, M, O>::operator()(
         [this](auto &cond) { return convert_condition(cond); });
 
     // Decimate
+    auto previous = mesh.get();
     for (const auto &step : steps) {
         decimate(step);
-        *destination_begin++ = std::make_shared<ge::sg::Mesh>(
-            static_cast<ge::sg::Mesh>(m_state->mesh()));
+        m_state->update_geomorph(*previous);
+        auto current = std::make_shared<ge::sg::Mesh>(m_state->export_mesh());
+
+        previous = current.get();
+        *destination_begin++ = std::move(current);
     }
 
     return destination_begin;
@@ -379,7 +382,7 @@ OutputIt LazySelection<T, M, O>::operator()(
 template <typename T, template <class> class M, template <class> class O>
 template <typename OutputIt>
 OutputIt LazySelection<T, M, O>::operator()(
-    const ge::sg::Mesh &mesh, size_type num_variants, OutputIt out_begin) const
+    ge::sg::Mesh &mesh, size_type num_variants, OutputIt out_begin) const
 {
     auto graph = graph::Mesh(mesh);
     initialize(graph);
@@ -393,10 +396,17 @@ OutputIt LazySelection<T, M, O>::operator()(
             return convert_condition(ElementFraction{(--n) * unit});
         });
 
+    // Decimate
+    auto previous = std::addressof(mesh);
     for (const auto &stop : stops) {
         decimate(stop);
-        *out_begin++ = static_cast<ge::sg::Mesh>(m_state->mesh());
+        m_state->update_geomorph(*previous);
+        auto current = m_state->export_mesh();
+
+        previous = std::addressof(current);
+        *out_begin++ = std::move(current);
     }
+
     return out_begin;
 }
 
@@ -411,9 +421,9 @@ OutputIt LazySelection<T, M, O>::operator()(
 template <typename T, template <class> class M, template <class> class O>
 template <typename OutputIt>
 OutputIt LazySelection<T, M, O>::operator()(
-    const std::shared_ptr<const ge::sg::Mesh> &mesh,
-    size_type                                  num_variants,
-    OutputIt                                   out_begin) const
+    const std::shared_ptr<ge::sg::Mesh> &mesh,
+    size_type                            num_variants,
+    OutputIt                             out_begin) const
 {
     auto graph = graph::Mesh(*mesh);
     initialize(graph);
@@ -427,11 +437,16 @@ OutputIt LazySelection<T, M, O>::operator()(
             return convert_condition(ElementFraction{(--n) * unit});
         });
 
+    auto previous = mesh.get();
     for (const auto &stop : stops) {
         decimate(stop);
-        *out_begin++ = std::make_shared<ge::sg::Mesh>(
-            static_cast<ge::sg::Mesh>(m_state->mesh()));
+        m_state->update_geomorph(*previous);
+        auto current = std::make_shared<ge::sg::Mesh>(m_state->export_mesh());
+
+        previous = current.get();
+        *out_begin++ = std::move(current);
     }
+
     return out_begin;
 }
 }  // namespace algorithm

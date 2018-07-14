@@ -9,6 +9,9 @@
 #include <memory>
 #include <type_traits>
 
+#include <geSG/Mesh.h>
+#include <glm/gtc/type_ptr.hpp>
+
 #include "graph/Edge.h"
 #include "graph/Mesh.h"
 #include "graph/Node.h"
@@ -156,6 +159,11 @@ public:
     /// @brief Mark edge as deleted from the mesh.
     SimplificationState &mark_deleted(
         graph::DirectedEdge::pointer_type deleted_edge);
+
+    /// @brief Export current state of the mesh.
+    ge::sg::Mesh export_mesh() const;
+    /// @brief Export geomorph attributes.
+    const SimplificationState &update_geomorph(ge::sg::Mesh &detailed) const;
 
 private:
     graph::Mesh &m_mesh;  ///< Decimated mesh.
@@ -362,6 +370,83 @@ inline SimplificationState<graph::DirectedEdge::pointer_type>
     m_dirty_elements.erase(deleted_edge);
     return *this;
 }
+
+/** Export current state of the mesh for rendering.
+ * @return Renderable equivalent of current mesh state.
+ */
+template <typename Element>
+inline ge::sg::Mesh SimplificationState<Element>::export_mesh() const
+{
+    return static_cast<ge::sg::Mesh>(m_mesh);
+}
+
+/** Fill/update geomorphing attribute of detailed mesh.
+ * @param[in,out] detailed The detailed mesh to update.
+ * @return Reference to self.
+ */
+template <typename Element>
+const SimplificationState<Element>
+    &SimplificationState<Element>::update_geomorph(ge::sg::Mesh &detailed) const
+{
+    using SM = ge::sg::AttributeDescriptor::Semantic;
+    using DT = ge::sg::AttributeDescriptor::DataType;
+    using byte = unsigned char;
+
+    auto positions = detailed.getAttribute(SM::position);
+    if (positions == nullptr) {
+        throw std::runtime_error("Mesh without positions!");
+    }
+
+    auto geomorph = detailed.getAttribute(SM::unknown);  // FIXME semantic
+    if (geomorph == nullptr) {
+        geomorph = std::make_shared<ge::sg::AttributeDescriptor>();
+        detailed.attributes.push_back(geomorph);
+    }
+
+    auto *const positions_data
+        = reinterpret_cast<byte *>(positions->data.get());
+    const auto &positions_size = static_cast<std::size_t>(positions->size);
+    const auto &positions_step = positions->stride
+        ? positions->stride
+        : positions->getSize(positions->type) * positions->numComponents;
+
+    geomorph->numComponents = 3;
+    geomorph->type = DT::FLOAT;
+    geomorph->semantic = SM::unknown;  // FIXME How to add semantic?
+    geomorph->size = static_cast<int>(
+        (positions_size / positions_step) * geomorph->getSize(geomorph->type)
+        * geomorph->numComponents);
+    geomorph->data
+        = std::make_unique<float[]>(static_cast<std::size_t>(geomorph->size));
+
+    auto *const geomorph_data = reinterpret_cast<byte *>(geomorph->data.get());
+    const auto &geomorph_step
+        = geomorph->getSize(geomorph->type) * geomorph->numComponents;
+
+    for (auto i = 0u; i < positions_size / positions_step; ++i) {
+        auto *current_position = reinterpret_cast<float *>(
+            positions_data + positions->offset + i * positions_step);  // NOLINT
+        auto *current_geomorph = reinterpret_cast<float *>(
+            geomorph_data + i * geomorph_step);  // NOLINT
+
+        auto current_node = graph::Node::make(glm::make_vec3(current_position));
+
+        auto found = m_deleted_nodes.find(current_node);
+        if (found != m_deleted_nodes.end()) {
+            std::copy_n(
+                glm::value_ptr((*found)->geomorph_target()),
+                3,
+                current_geomorph);
+        }
+        else {
+            std::copy_n(
+                glm::value_ptr(current_node->position()), 3, current_geomorph);
+        }
+    }
+
+    return *this;
+}
+
 }  // namespace lod
 
 #endif /* end of include guard: PROTOCOL_H_DJOVTO94 */
