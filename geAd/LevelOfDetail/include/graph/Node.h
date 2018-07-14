@@ -45,6 +45,12 @@ public:
     /// @brief Access stored edge pointer.
     edge_pointer_type &      edge() noexcept { return m_edge; }
     const edge_pointer_type &edge() const noexcept { return m_edge; }
+    /// @brief Access stored geomorph taget position.
+    position_type &geomorph_target() noexcept { return m_geomorph_target; }
+    const position_type &geomorph_target() const noexcept
+    {
+        return m_geomorph_target;
+    }
 
     /// @brief Compare two Nodes.
     bool operator==(const Node &other) const noexcept;
@@ -63,6 +69,8 @@ private:
     /// Vertex position in model space.
     const position_type m_position = {0.f, 0.f, 0.f};
     edge_pointer_type   m_edge = {};  ///< Arbitrary first outgoing edge.
+    position_type       m_geomorph_target
+        = m_position;  ///< Target position for geomorphing
 };
 }  // namespace graph
 }  // namespace lod

@@ -268,6 +268,7 @@ void EdgeCollapse<HalfEdgeTag>::operator()(
     }
 
     // remove collapsed node and deleted edges
+    origin_node->geomorph_target() = target_node->position();
     state.mark_deleted(origin_node);
     for (auto &&deleted : edges_to_delete) {
         state.mark_deleted(deleted);
@@ -375,9 +376,11 @@ void EdgeCollapse<FullEdgeTag>::operator()(
 
     // Drop nodes and edges
     if (new_node != target_node) {
+        target_node->geomorph_target() = new_node->position();
         state.mark_deleted(target_node);
     }
     if (new_node != origin_node) {
+        origin_node->geomorph_target() = new_node->position();
         state.mark_deleted(origin_node);
     }
     for (auto &&edge : edges_to_delete) {
