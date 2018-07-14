@@ -434,7 +434,7 @@ const SimplificationState<Element>
         auto found = m_deleted_nodes.find(current_node);
         if (found != m_deleted_nodes.end()) {
             std::copy_n(
-                glm::value_ptr((*found)->geomorph_target()),
+                glm::value_ptr((*found)->geomorph_target()->position()),
                 3,
                 current_geomorph);
         }

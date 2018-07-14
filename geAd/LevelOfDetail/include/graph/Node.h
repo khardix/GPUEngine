@@ -41,20 +41,21 @@ public:
     const_weak_type as_weak() const { return shared_from_this(); }
 
     /// @brief Access stored position.
+    position_type &      position() noexcept { return m_position; }
     const position_type &position() const noexcept { return m_position; }
     /// @brief Access stored edge pointer.
     edge_pointer_type &      edge() noexcept { return m_edge; }
     const edge_pointer_type &edge() const noexcept { return m_edge; }
-    /// @brief Access stored geomorph taget position.
-    position_type &geomorph_target() noexcept { return m_geomorph_target; }
-    const position_type &geomorph_target() const noexcept
-    {
-        return m_geomorph_target;
-    }
+    /// @brief Access stored geomorph step.
+    weak_type &      geomorph_step() noexcept { return m_geomorph_step; }
+    const weak_type &geomorph_step() const noexcept { return m_geomorph_step; }
 
     /// @brief Compare two Nodes.
     bool operator==(const Node &other) const noexcept;
     bool operator!=(const Node &other) const noexcept;
+
+    /// @brief Find current geomorph target.
+    const_pointer_type geomorph_target() const noexcept;
 
 protected:
     explicit Node(
@@ -67,10 +68,9 @@ protected:
 
 private:
     /// Vertex position in model space.
-    const position_type m_position = {0.f, 0.f, 0.f};
-    edge_pointer_type   m_edge = {};  ///< Arbitrary first outgoing edge.
-    position_type       m_geomorph_target
-        = m_position;  ///< Target position for geomorphing
+    position_type     m_position = {0.f, 0.f, 0.f};
+    edge_pointer_type m_edge = {};           ///< Arbitrary first outgoing edge.
+    weak_type         m_geomorph_step = {};  ///< Next node in geomorph chain.
 };
 }  // namespace graph
 }  // namespace lod
@@ -136,6 +136,18 @@ inline bool Node::operator==(const Node &other) const noexcept
 inline bool Node::operator!=(const Node &other) const noexcept
 {
     return !(*this == other);
+}
+
+/** Iteratively find the node to morph into.
+ * @returns The target node for geomorphing; can be this node.
+ */
+inline Node::const_pointer_type Node::geomorph_target() const noexcept
+{
+    auto current = as_shared();
+    while (!current->geomorph_step().expired()) {
+        current = current->geomorph_step().lock();
+    }
+    return current;
 }
 }  // namespace graph
 }  // namespace lod
