@@ -12,7 +12,6 @@
 #include <geSG/Mesh.h>
 #include <geSG/MeshTriangleIterators.h>
 
-#include "../protocol.h"
 #include "../util/hash_combinator.h"
 #include "Edge.h"
 #include "Node.h"

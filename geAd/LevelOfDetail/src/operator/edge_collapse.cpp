@@ -180,19 +180,19 @@ bool EdgeCollapse<FullEdgeTag>::boundary_collapse(
 }
 
 /** Applies the operator to the mesh.
- * @param mesh The mesh to be modified.
+ * @param[in,out] state The current state of the decimation.
  * @param operation The operation to perform.
  * @returns Set of elements influenced by the operation.
  * @throws graph::algorithm_failure On encounter with non-manifold edge.
  * @todo If the operation cannot be safely applied, it is silently skipped.
  */
-auto EdgeCollapse<HalfEdgeTag>::operator()(
-    graph::Mesh &mesh, const operation_type &operation) const -> result_type
-    try {
+void EdgeCollapse<HalfEdgeTag>::operator()(
+    SimplificationState<Tag::element_type> &state,
+    const operation_type &                  operation) const try {
     using namespace lod::graph;
 
-    auto modified = result_type{};
-    auto to_delete = Mesh::EdgeSet{};
+    auto &modified = state.dirty();
+    auto  edges_to_delete = Mesh::EdgeSet{};
 
     const auto &collapsed_edge = operation.element().get();
     const auto  target_node = collapsed_edge->target().lock();
@@ -220,13 +220,13 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
                std::cend(edge_ring),
                *origin_node,
                *target_node)) {
-        return modified;
+        return;
     }
 
     // Apply the edge adjustments
     for (auto &&opposite : edge_ring) {
         if (replaced_by_prev(opposite)) {
-            mark_triangle_deleted(to_delete, opposite->triangle_edges());
+            mark_triangle_deleted(edges_to_delete, opposite->triangle_edges());
             // replace deleted edge with valid neighbour
             opposite
                 = connect_neighbours(opposite->previous().lock(), opposite);
@@ -234,7 +234,7 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
         }
 
         if (replaced_by_next(opposite)) {
-            mark_triangle_deleted(to_delete, opposite->triangle_edges());
+            mark_triangle_deleted(edges_to_delete, opposite->triangle_edges());
             // replace deleted edge with valid neighbour
             opposite = connect_neighbours(opposite->next(), opposite);
             continue;
@@ -268,12 +268,10 @@ auto EdgeCollapse<HalfEdgeTag>::operator()(
     }
 
     // remove collapsed node and deleted edges
-    mesh.nodes().erase(std::const_pointer_cast<Node>(origin_node));
-    for (auto &&deleted : to_delete) {
-        mesh.edges().erase(deleted);
+    state.mark_deleted(std::const_pointer_cast<Node>(origin_node));
+    for (auto &&deleted : edges_to_delete) {
+        state.mark_deleted(deleted);
     }
-
-    return modified;
 }
 catch (const nonstd::bad_variant_access &) {
     auto message = graph::algorithm_failure("Non-manifold half-edge collapse!");
@@ -281,15 +279,15 @@ catch (const nonstd::bad_variant_access &) {
 }
 
 /** Applies the operator to the mesh.
- * @param mesh The mesh to be modified.
+ * @param[in,out] state The current state of the simplification.
  * @param operation The operation to perform.
  * @returns Set of elements influenced by the operation.
  * @throws graph::algorithm_failure On encounter with non-manifold edge.
  * @todo If the operation cannot be safely applied, it is silently skipped.
  */
-auto EdgeCollapse<FullEdgeTag>::operator()(
-    graph::Mesh &mesh, const operation_type &operation) const -> result_type
-    try {
+void EdgeCollapse<FullEdgeTag>::operator()(
+    SimplificationState<Tag::element_type> &state,
+    const operation_type &                  operation) const try {
     using namespace lod::graph;
 
     auto collapsed = operation.element().get();
@@ -300,8 +298,8 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
     const auto target_node = collapsed->target().lock();
     const auto origin_node = collapsed->previous().lock()->target().lock();
 
-    auto modified = result_type{};
-    auto to_delete = Mesh::EdgeSet{};
+    auto &modified = state.dirty();
+    auto  edges_to_delete = Mesh::EdgeSet{};
 
     /// Make an edge ring without edges touching the other node.
     auto partial_ring = [](const auto &center_edge) {
@@ -321,7 +319,7 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
 
     // preliminary checks of operation validity
     if (nonmanifold_collapse(*collapsed) || boundary_collapse(*collapsed)) {
-        return modified;
+        return;
     }
     for (const auto &edge : {collapsed, opposite}) {
         if (!edge) {
@@ -336,12 +334,13 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
             *candidate);
 
         if (fold) {
-            return modified;
+            return;
         }
     }
 
     // Insert and connect the candidate
-    const auto &new_node = *mesh.nodes().insert(std::move(candidate)).first;
+    const auto &new_node
+        = *state.mesh().nodes().insert(std::move(candidate)).first;
     for (const auto &edge : {collapsed, opposite}) {
         if (!edge) {
             continue;
@@ -360,7 +359,7 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
             }
         }
 
-        mark_triangle_deleted(to_delete, triangle);
+        mark_triangle_deleted(edges_to_delete, triangle);
     }
 
     // Adjust the surroundings
@@ -376,16 +375,14 @@ auto EdgeCollapse<FullEdgeTag>::operator()(
 
     // Drop nodes and edges
     if (new_node != target_node) {
-        mesh.nodes().erase(std::const_pointer_cast<Node>(target_node));
+        state.mark_deleted(std::const_pointer_cast<Node>(target_node));
     }
     if (new_node != origin_node) {
-        mesh.nodes().erase(std::const_pointer_cast<Node>(origin_node));
+        state.mark_deleted(std::const_pointer_cast<Node>(origin_node));
     }
-    for (auto &&edge : to_delete) {
-        mesh.edges().erase(edge);
+    for (auto &&edge : edges_to_delete) {
+        state.mark_deleted(edge);
     }
-
-    return modified;
 }
 catch (const nonstd::bad_variant_access &) {
     auto message = graph::algorithm_failure("Non-manifold full-edge collapse!");

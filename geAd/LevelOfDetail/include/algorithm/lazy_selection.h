@@ -17,7 +17,7 @@
 
 #include <geSG/Mesh.h>
 
-#include "../graph/Mesh.h"
+#include "../protocol.h"
 
 namespace lod {
 namespace algorithm {
@@ -55,9 +55,7 @@ public:
     using element_type = typename operation_type::element_pointer::type;
     using element_pointer = typename operation_type::element_pointer;
 
-    using pointer_set_type = std::set<
-        typename element_pointer::pointer_type,
-        typename element_pointer::pointer_cmp>;
+    using state_type = typename lod::SimplificationState<element_type>;
     using queue_type = std::priority_queue<
         operation_type,
         std::vector<operation_type>,
@@ -106,6 +104,9 @@ protected:
     /// @brief Initialize the internal state for new mesh processing.
     void initialize(graph::Mesh &mesh) const;
 
+    /// @brief Query the current number of remaining elements.
+    size_type remaining_count() const;
+
     /// @brief Convert stop condition to generic function/closure.
     std::function<bool()> convert_condition(
         const MaxError<cost_type> &cost) const;
@@ -120,12 +121,10 @@ private:
     Metric<Tag>   m_metric;    ///< Metric to use for evaluation.
     Operator<Tag> m_operator;  ///< Operator used for decimation.
 
-    /// @brief Currently decimated mesh.
-    mutable graph::Mesh *m_mesh = nullptr;
+    /// @brief Current state of the decimated mesh.
+    mutable std::unique_ptr<state_type> m_state = nullptr;
     /// @brief Elements currently scheduled for decimation.
     mutable queue_type m_queue = {};
-    /// @brief Elements that need to be re-evaluated before decimation.
-    mutable pointer_set_type m_dirty = {};
 };
 
 /** @brief Convenience wrapper around the full LazySelection functor. */
@@ -147,14 +146,22 @@ inline decltype(auto) lazy_selection(Args &&... args)
 template <typename T, template <class> class M, template <class> class O>
 inline void LazySelection<T, M, O>::initialize(graph::Mesh &mesh) const
 {
-    m_mesh = std::addressof(mesh);
+    m_state = std::make_unique<state_type>(mesh);
     m_queue = queue_type{};
-    m_dirty = pointer_set_type{};
 
     // Fill queue with the initial costs.
-    for (const auto &element : m_mesh->container<element_type>()) {
+    for (const auto &element : mesh.container<element_type>()) {
         m_queue.push(m_metric(element));
     }
+}
+
+/** Count the remaining (decimated) elements in the mesh.
+ * @returns Number of remaining elements.
+ */
+template <typename T, template <class> class M, template <class> class O>
+inline auto LazySelection<T, M, O>::remaining_count() const -> size_type
+{
+    return m_state->mesh().template container<element_type>().size();
 }
 
 /** Encapsulate stop condition to one function/closure.
@@ -180,9 +187,8 @@ template <typename T, template <class> class M, template <class> class O>
 inline std::function<bool()> LazySelection<T, M, O>::convert_condition(
     const ElementCount &target) const
 {
-    return [this, target = target.count]() {
-        return m_mesh->container<element_type>().size() > target;
-    };
+    return
+        [this, target = target.count]() { return remaining_count() > target; };
 }
 
 /** @overload
@@ -194,10 +200,10 @@ template <typename T, template <class> class M, template <class> class O>
 inline std::function<bool()> LazySelection<T, M, O>::convert_condition(
     const ElementFraction &target) const
 {
-    const auto size
-        = static_cast<double>(m_mesh->container<element_type>().size());
-    auto count = std::round(target.fraction * size);
-    return convert_condition(ElementCount{static_cast<std::size_t>(count)});
+    const auto starting_size = static_cast<double>(remaining_count());
+    const auto target_count
+        = static_cast<std::size_t>(std::round(target.fraction * starting_size));
+    return convert_condition(ElementCount{target_count});
 }
 
 /** Runs the decimation until the stop condition is fulfilled. */
@@ -209,23 +215,20 @@ void LazySelection<T, M, O>::decimate(
         auto operation = m_queue.top();
         m_queue.pop();
 
+        const auto &element = operation.element();
+
         // skip operations with invalid elements
-        if (!operation) {
+        if (!element.valid()) {
             continue;
         }
 
         // lazy re-evaluation
-        auto dirty_it = m_dirty.find(operation.element());
-        if (dirty_it != m_dirty.end()) {
+        if (m_state->dirty().erase(element.get())) {
             m_queue.push(m_metric(operation.element().get()));
-            m_dirty.erase(dirty_it);
         }
         // operator application
         else {
-            auto modified = m_operator(*m_mesh, operation);
-            for (auto &&element : modified) {
-                m_dirty.insert(std::move(element));
-            }
+            m_operator(*m_state, operation);
         }
     }
 }
@@ -320,7 +323,7 @@ OutputIt LazySelection<T, M, O>::operator()(
     // Decimate
     for (const auto &step : steps) {
         decimate(step);
-        *destination_begin++ = static_cast<ge::sg::Mesh>(*m_mesh);
+        *destination_begin++ = static_cast<ge::sg::Mesh>(m_state->mesh());
     }
 
     return destination_begin;
@@ -359,7 +362,7 @@ OutputIt LazySelection<T, M, O>::operator()(
     for (const auto &step : steps) {
         decimate(step);
         *destination_begin++ = std::make_shared<ge::sg::Mesh>(
-            static_cast<ge::sg::Mesh>(*m_mesh));
+            static_cast<ge::sg::Mesh>(m_state->mesh()));
     }
 
     return destination_begin;
@@ -392,7 +395,7 @@ OutputIt LazySelection<T, M, O>::operator()(
 
     for (const auto &stop : stops) {
         decimate(stop);
-        *out_begin++ = static_cast<ge::sg::Mesh>(*m_mesh);
+        *out_begin++ = static_cast<ge::sg::Mesh>(m_state->mesh());
     }
     return out_begin;
 }
@@ -427,7 +430,7 @@ OutputIt LazySelection<T, M, O>::operator()(
     for (const auto &stop : stops) {
         decimate(stop);
         *out_begin++ = std::make_shared<ge::sg::Mesh>(
-            static_cast<ge::sg::Mesh>(*m_mesh));
+            static_cast<ge::sg::Mesh>(m_state->mesh()));
     }
     return out_begin;
 }

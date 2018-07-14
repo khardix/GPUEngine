@@ -8,7 +8,6 @@
 #include <unordered_set>
 
 #include "../graph/Edge.h"
-#include "../graph/Mesh.h"
 #include "../protocol.h"
 
 namespace lod {
@@ -41,11 +40,11 @@ class EdgeCollapse<operation::HalfEdgeTag> : common::EdgeCollapse {
 public:
     using Tag = operation::HalfEdgeTag;
     using operation_type = operation::Simple<Tag::element_type>;
-    using result_type = graph::Mesh::EdgeSet;
 
     /// @brief Apply the operator to a mesh element.
-    result_type operator()(
-        graph::Mesh &mesh, const operation_type &operation) const;
+    void operator()(
+        SimplificationState<Tag::element_type> &state,
+        const operation_type &                  operation) const;
 
     /// @brief Check for problematic collapse on a mesh boundary
     static bool boundary_collapse(const graph::DirectedEdge &collapsed);
@@ -57,11 +56,11 @@ class EdgeCollapse<operation::FullEdgeTag> : common::EdgeCollapse {
 public:
     using Tag = operation::FullEdgeTag;
     using operation_type = operation::VertexPlacement<Tag::element_type>;
-    using result_type = graph::Mesh::EdgeSet;
 
     /// @brief Apply the operator to a mesh element.
-    result_type operator()(
-        graph::Mesh &mesh, const operation_type &operation) const;
+    void operator()(
+        lod::SimplificationState<Tag::element_type> &state,
+        const operation_type &                       operation) const;
 
     /// @brief Check for problematic collapse on a mesh boundary
     static bool boundary_collapse(const graph::DirectedEdge &collapsed);

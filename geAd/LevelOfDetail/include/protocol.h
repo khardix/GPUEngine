@@ -10,6 +10,7 @@
 #include <type_traits>
 
 #include "graph/Edge.h"
+#include "graph/Mesh.h"
 #include "graph/Node.h"
 
 namespace lod {
@@ -130,6 +131,39 @@ private:
 };
 }  // namespace operation
 
+/// @brief Mutable state of the simplifaction process
+template <typename Element>
+class SimplificationState {
+public:
+    using element_type = typename operation::ElementPointer<Element>::type;
+    using pointer_set_type = typename std::unordered_set<element_type>;
+    using node_set_type = std::unordered_set<graph::Node::pointer_type>;
+
+    explicit SimplificationState(graph::Mesh &mesh) noexcept;
+
+    /// @brief Access current mesh state.
+    graph::Mesh &mesh() noexcept { return m_mesh; }
+
+    /// @brief Access dirty elements.
+    pointer_set_type &dirty() noexcept { return m_dirty_elements; }
+    /// @brief Mark element as dirty.
+    SimplificationState &mark_dirty(element_type dirty_element);
+
+    /// @brief Access deleted nodes.
+    node_set_type &deleted_nodes() noexcept { return m_deleted_nodes; }
+    /// @brief Mark node as deleted from the mesh.
+    SimplificationState &mark_deleted(graph::Node::pointer_type deleted_node);
+    /// @brief Mark edge as deleted from the mesh.
+    SimplificationState &mark_deleted(
+        graph::DirectedEdge::pointer_type deleted_edge);
+
+private:
+    graph::Mesh &m_mesh;  ///< Decimated mesh.
+    /// Elements that changed state since last cost evaluation.
+    pointer_set_type m_dirty_elements = {};
+    /// Vertices already removed from mesh.
+    node_set_type m_deleted_nodes = {};
+};
 
 // Inline and template members
 namespace operation {
@@ -250,6 +284,84 @@ inline auto VertexPlacement<Element, ErrorType>::position_hint() const noexcept
     return m_hint;
 }
 }  // namespace operation
+
+template <typename Element>
+inline SimplificationState<Element>::SimplificationState(
+    graph::Mesh &mesh) noexcept
+    : m_mesh(mesh)
+{
+}
+
+/** Inserts the element into the set of dirty elements.
+ * @param dirty_element The element to insert.
+ * @returns Reference to self.
+ */
+template <typename Element>
+inline SimplificationState<Element> &SimplificationState<Element>::mark_dirty(
+    element_type dirty_element)
+{
+    m_dirty_elements.insert(std::move(dirty_element));
+
+    return *this;
+}
+
+/** "Deletes" a Node from the mesh.
+ * "Deleted" (decimated) nodes are kept in dedicated set in order to be usable
+ * for after-decimation calculations. To truly delete a Node from memory, clear
+ * the deleted_nodes() container.
+ * @param deleted_node The node to remove from the mesh.
+ * @return Reference to self.
+ */
+template <typename Element>
+inline SimplificationState<Element> &SimplificationState<Element>::mark_deleted(
+    graph::Node::pointer_type deleted_node)
+{
+    m_mesh.nodes().erase(deleted_node);
+    m_deleted_nodes.insert(std::move(deleted_node));
+    return *this;
+}
+
+/** "Deletes" a node from the mesh and from the dirty elements set.
+ * @see SimplificationState<Element>::mark_deleted()
+ * @param deleted_node The node to remove from the mesh and dirty elements.
+ * @return Reference to self.
+ */
+template <>
+inline SimplificationState<graph::Node::pointer_type>
+    &SimplificationState<graph::Node::pointer_type>::mark_deleted(
+        graph::Node::pointer_type deleted_node)
+{
+    m_mesh.nodes().erase(deleted_node);
+    m_dirty_elements.erase(deleted_node);
+    m_deleted_nodes.insert(std::move(deleted_node));
+    return *this;
+}
+
+/** Deletes an edge from the mesh.
+ * @param deleted_edge The edge to remove from the mesh.
+ * @return reference to self.
+ */
+template <typename Element>
+inline SimplificationState<Element> &SimplificationState<Element>::mark_deleted(
+    graph::DirectedEdge::pointer_type deleted_edge)
+{
+    m_mesh.edges().erase(deleted_edge);
+    return *this;
+}
+
+/** Deletes an edge from the mesh and from the dirty elements set.
+ * @param deleted_edge The edge to remove from the mesh and dirty elements.
+ * @return reference to self.
+ */
+template <>
+inline SimplificationState<graph::DirectedEdge::pointer_type>
+    &SimplificationState<graph::DirectedEdge::pointer_type>::mark_deleted(
+        graph::DirectedEdge::pointer_type deleted_edge)
+{
+    m_mesh.edges().erase(deleted_edge);
+    m_dirty_elements.erase(deleted_edge);
+    return *this;
+}
 }  // namespace lod
 
 #endif /* end of include guard: PROTOCOL_H_DJOVTO94 */

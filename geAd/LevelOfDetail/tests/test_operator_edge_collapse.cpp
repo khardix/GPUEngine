@@ -143,6 +143,7 @@ SCENARIO(
     GIVEN("Mesh and Half-Edge collapse operator")
     {
         auto mesh = make_mesh();
+        auto state = lod::SimplificationState<Half::element_type>(mesh);
         auto collapse = HalfEdgeCollapse{};
 
         WHEN("A regular edge is collapsed")
@@ -150,7 +151,7 @@ SCENARIO(
             auto operation = HalfOperation{regular_edge(mesh), 0.f};
             auto origin = std::const_pointer_cast<lod::graph::Node>(
                 operation.element().get()->previous().lock()->target().lock());
-            collapse(mesh, operation);
+            collapse(state, operation);
 
             THEN("The mesh contains expected number of elements")
             {
@@ -205,7 +206,8 @@ SCENARIO(
         WHEN("A semi-boundary edge is collapsed")
         {
             auto operation = HalfOperation{semiborder_edge(mesh), 0.f};
-            auto modified = collapse(mesh, operation);
+            collapse(state, operation);
+            auto &modified = state.dirty();
 
             THEN("The mesh is not modified")
             {
@@ -218,7 +220,8 @@ SCENARIO(
         WHEN("A boundary edge is collapsed")
         {
             auto operation = HalfOperation{border_edge(mesh), 0.f};
-            auto modified = collapse(mesh, operation);
+            collapse(state, operation);
+            auto &modified = state.dirty();
 
             THEN("The mesh is not modified")
             {
@@ -233,6 +236,7 @@ SCENARIO(
     {
         auto mesh = make_mesh();
         auto collapse = FullEdgeCollapse{};
+        auto state = lod::SimplificationState<Full::element_type>(mesh);
 
         WHEN("A regular edge is collapsed")
         {
@@ -244,7 +248,7 @@ SCENARIO(
                 std::const_pointer_cast<graph::Node>(
                     collapsed->previous().lock()->target().lock()));
             auto operation = FullOperation{collapsed, 0.f, hinted->position()};
-            collapse(mesh, operation);
+            collapse(state, operation);
 
             THEN("The mesh contains expected number of elements")
             {
@@ -309,7 +313,8 @@ SCENARIO(
         {
             auto operation
                 = FullOperation{semiborder_edge(mesh), 0.f, {0.f, 0.f, 0.f}};
-            auto modified = collapse(mesh, operation);
+            collapse(state, operation);
+            auto &modified = state.dirty();
 
             THEN("The mesh is not modified")
             {
@@ -323,7 +328,8 @@ SCENARIO(
         {
             auto operation
                 = FullOperation{semiborder_edge(mesh), 0.f, {0.f, 0.f, 0.f}};
-            auto modified = collapse(mesh, operation);
+            collapse(state, operation);
+            auto &modified = state.dirty();
 
             THEN("The mesh is not modified")
             {
