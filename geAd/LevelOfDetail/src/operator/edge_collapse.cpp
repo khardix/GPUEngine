@@ -110,7 +110,7 @@ bool common::EdgeCollapse::nonmanifold_collapse(
     const graph::DirectedEdge &collapsed)
 {
     using namespace lod::graph;
-    using trans = std::pair<Node::const_pointer_type, Mesh::NodeSet &>;
+    using trans = std::pair<Node::pointer_type, Mesh::NodeSet &>;
 
     auto origin_nodes = Mesh::NodeSet{}, target_nodes = Mesh::NodeSet{};
     for (auto &&t :
@@ -122,7 +122,7 @@ bool common::EdgeCollapse::nonmanifold_collapse(
             std::end(container),
             std::inserter(t.second, t.second.end()),
             [](auto &&node_ptr) -> Node::pointer_type {
-                return std::const_pointer_cast<Node>(node_ptr.lock());
+                return node_ptr.lock();
             });
     }
 
@@ -268,7 +268,7 @@ void EdgeCollapse<HalfEdgeTag>::operator()(
     }
 
     // remove collapsed node and deleted edges
-    state.mark_deleted(std::const_pointer_cast<Node>(origin_node));
+    state.mark_deleted(origin_node);
     for (auto &&deleted : edges_to_delete) {
         state.mark_deleted(deleted);
     }
@@ -375,10 +375,10 @@ void EdgeCollapse<FullEdgeTag>::operator()(
 
     // Drop nodes and edges
     if (new_node != target_node) {
-        state.mark_deleted(std::const_pointer_cast<Node>(target_node));
+        state.mark_deleted(target_node);
     }
     if (new_node != origin_node) {
-        state.mark_deleted(std::const_pointer_cast<Node>(origin_node));
+        state.mark_deleted(origin_node);
     }
     for (auto &&edge : edges_to_delete) {
         state.mark_deleted(edge);

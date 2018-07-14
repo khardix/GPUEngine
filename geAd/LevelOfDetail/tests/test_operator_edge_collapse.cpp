@@ -149,8 +149,8 @@ SCENARIO(
         WHEN("A regular edge is collapsed")
         {
             auto operation = HalfOperation{regular_edge(mesh), 0.f};
-            auto origin = std::const_pointer_cast<lod::graph::Node>(
-                operation.element().get()->previous().lock()->target().lock());
+            auto origin
+                = operation.element().get()->previous().lock()->target().lock();
             collapse(state, operation);
 
             THEN("The mesh contains expected number of elements")
@@ -186,8 +186,7 @@ SCENARIO(
             THEN("All edges point to valid nodes")
             {
                 auto valid_target = [&mesh](const auto &edge) {
-                    auto target = std::const_pointer_cast<lod::graph::Node>(
-                        edge->target().lock());
+                    auto target = edge->target().lock();
                     auto mesh_it = mesh.nodes().find(target);
                     if (mesh_it == mesh.nodes().end()) {
                         FAIL("Node is not known to mesh");
@@ -243,10 +242,8 @@ SCENARIO(
             auto hinted = graph::Node::make(glm::vec3{0.0f, 0.f, 0.f});
             auto collapsed = regular_edge(mesh);
             auto original = std::make_pair(
-                std::const_pointer_cast<graph::Node>(
-                    collapsed->target().lock()),
-                std::const_pointer_cast<graph::Node>(
-                    collapsed->previous().lock()->target().lock()));
+                collapsed->target().lock(),
+                collapsed->previous().lock()->target().lock());
             auto operation = FullOperation{collapsed, 0.f, hinted->position()};
             collapse(state, operation);
 
@@ -292,8 +289,7 @@ SCENARIO(
             THEN("All edges point to valid nodes")
             {
                 auto valid_target = [&mesh](const auto &edge) {
-                    auto target = std::const_pointer_cast<graph::Node>(
-                        edge->target().lock());
+                    auto target = edge->target().lock();
                     auto mesh_it = mesh.nodes().find(target);
                     if (mesh_it == mesh.nodes().end()) {
                         FAIL("Node is not known to mesh");

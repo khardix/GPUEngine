@@ -48,7 +48,7 @@ void lod::graph::Mesh::insert(
     using invalid = DirectedEdge::invalid;
 
     // insert nodes
-    auto nodes = std::array<const Node::const_weak_type, 3>{
+    auto nodes = std::array<const Node::weak_type, 3>{
         *(m_nodes.insert(Node::make(glm::make_vec3(triangle[0]))).first),
         *(m_nodes.insert(Node::make(glm::make_vec3(triangle[1]))).first),
         *(m_nodes.insert(Node::make(glm::make_vec3(triangle[2]))).first),

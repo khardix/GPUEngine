@@ -41,10 +41,10 @@ public:
     const_weak_type as_weak() const { return shared_from_this(); }
 
     /// @brief Access stored position.
-    position_type &      position() noexcept { return m_position; }
     const position_type &position() const noexcept { return m_position; }
     /// @brief Access stored edge pointer.
-    edge_pointer_type &edge() const noexcept { return m_edge; }
+    edge_pointer_type &      edge() noexcept { return m_edge; }
+    const edge_pointer_type &edge() const noexcept { return m_edge; }
 
     /// @brief Compare two Nodes.
     bool operator==(const Node &other) const noexcept;
@@ -61,8 +61,8 @@ protected:
 
 private:
     /// Vertex position in model space.
-    position_type             m_position = {0.f, 0.f, 0.f};
-    mutable edge_pointer_type m_edge = {};  ///< Arbitrary first outgoing edge.
+    const position_type m_position = {0.f, 0.f, 0.f};
+    edge_pointer_type   m_edge = {};  ///< Arbitrary first outgoing edge.
 };
 }  // namespace graph
 }  // namespace lod

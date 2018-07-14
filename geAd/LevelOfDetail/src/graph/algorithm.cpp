@@ -83,7 +83,7 @@ catch (const nonstd::bad_variant_access &) {
  * @return Container of nodes adjacent to the center node.
  * @throws algorithm_failure On encounter with non-manifold edge.
  */
-std::deque<Node::const_weak_type> adjacent_nodes(
+std::deque<Node::weak_type> adjacent_nodes(
     const std::deque<DirectedEdge::pointer_type> &edge_ring)
 {
     auto full_circle = [](const auto &edges) -> bool {
@@ -91,7 +91,7 @@ std::deque<Node::const_weak_type> adjacent_nodes(
             == (edges.back()->target().lock());
     };
 
-    auto result = std::deque<Node::const_weak_type>{};
+    auto result = std::deque<Node::weak_type>{};
 
     std::transform(
         std::cbegin(edge_ring),

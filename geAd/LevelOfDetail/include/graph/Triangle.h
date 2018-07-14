@@ -20,7 +20,7 @@ using DetachedTriangle = std::array<DirectedEdge::pointer_type, 3>;
 
 /// @brief Constructs detached Triangle from three Nodes.
 DetachedTriangle make_triangle(
-    const std::array<const Node::const_weak_type, 3> &nodes);
+    const std::array<const Node::weak_type, 3> &nodes);
 }  // namespace graph
 }  // namespace lod
 

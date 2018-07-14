@@ -49,8 +49,8 @@ public:
     const_weak_type as_weak() const { return shared_from_this(); }
 
     /// @brief Access stored target.
-    Node::const_weak_type &      target() { return m_target; }
-    Node::const_weak_type const &target() const { return m_target; }
+    Node::weak_type &      target() { return m_target; }
+    const Node::weak_type &target() const { return m_target; }
     /// @brief Access stored previous edge.
     weak_type &      previous() { return m_previous; }
     const weak_type &previous() const { return m_previous; }
@@ -70,14 +70,14 @@ public:
 
 protected:
     explicit DirectedEdge(
-        Node::const_weak_type target = {},
-        weak_type             previous = {},
-        MaybeEdge             neighbour = weak_type{}) noexcept;
+        Node::weak_type target = {},
+        weak_type       previous = {},
+        MaybeEdge       neighbour = weak_type{}) noexcept;
 
 private:
-    Node::const_weak_type m_target = {};    ///< Target vertex.
-    weak_type             m_previous = {};  ///< Previous edge in polygon.
-    MaybeEdge m_neighbour = weak_type{};    ///< Opposite direction half-edge.
+    Node::weak_type m_target = {};        ///< Target vertex.
+    weak_type       m_previous = {};      ///< Previous edge in polygon.
+    MaybeEdge m_neighbour = weak_type{};  ///< Opposite direction half-edge.
 };
 
 /// @brief Hashable canonical representation of an edge.
@@ -126,9 +126,7 @@ struct hash<lod::graph::UndirectedEdge> {
 namespace lod {
 namespace graph {
 inline DirectedEdge::DirectedEdge(
-    Node::const_weak_type target,
-    weak_type             previous,
-    MaybeEdge             neighbour) noexcept
+    Node::weak_type target, weak_type previous, MaybeEdge neighbour) noexcept
     : m_target(std::move_if_noexcept(target)),
       m_previous(std::move_if_noexcept(previous)),
       m_neighbour(std::move_if_noexcept(neighbour))
