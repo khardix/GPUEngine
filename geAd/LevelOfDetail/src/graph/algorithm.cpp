@@ -22,7 +22,9 @@ namespace graph {
  */
 std::deque<DirectedEdge::pointer_type> opposite_edges(const Node &center) try {
     if (center.edge().expired()) {
-        throw std::runtime_error("Sole node!");
+        auto decimated = !center.geomorph_step().expired();
+        throw std::runtime_error(
+            decimated ? "Sole decimated node!" : "Sole mesh node!");
     }
     auto result = std::deque<DirectedEdge::pointer_type>{};
 

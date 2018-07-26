@@ -1,6 +1,9 @@
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <iostream>
 #include <memory>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 
@@ -20,6 +23,7 @@ public:
 };
 
 int main(int argc, char *argv[]) try {
+    using namespace std::literals::chrono_literals;
     using std::chrono::duration_cast;
     using std::chrono::milliseconds;
 
@@ -36,14 +40,23 @@ int main(int argc, char *argv[]) try {
     auto fraction = lod::ElementFraction{std::stod(argv[2])};
 
     auto &mesh = scene->models.at(0)->meshes.at(0);
-    auto  graph = lod::Mesh(*mesh);
+    auto  measurements = std::array<milliseconds, 10>{};
 
-    const auto start = std::chrono::steady_clock::now();
-    lod::simplify(graph, fraction);
-    const auto stop = std::chrono::steady_clock::now();
+    std::generate(measurements.begin(), measurements.end(), [&] {
+        auto graph = lod::Mesh(*mesh);
 
-    auto measurement = duration_cast<milliseconds>(stop - start);
-    std::cout << measurement.count() << '\n';
+        const auto start = std::chrono::steady_clock::now();
+        lod::simplify<lod::HalfEdgeTag>(graph, fraction);
+        const auto stop = std::chrono::steady_clock::now();
+
+        return duration_cast<milliseconds>(stop - start);
+    });
+
+    auto total_time
+        = std::accumulate(measurements.cbegin(), measurements.cend(), 0ms);
+    auto avg_time = static_cast<double>(total_time.count())
+        / static_cast<double>(measurements.size());
+    std::cout << avg_time << '\n';
 
     return 0;
 }
@@ -52,7 +65,7 @@ catch (const usage_error &err) {
     std::cerr << USAGE;
     return EXIT_FAILURE;
 }
-catch (const std::runtime_error &err) {
+catch (const std::exception &err) {
     std::cerr << err.what() << '\n';
     return EXIT_FAILURE;
 }
