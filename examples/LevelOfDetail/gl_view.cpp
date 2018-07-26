@@ -239,7 +239,7 @@ void GLView::Renderer::paint()
     const auto proj_matrix = [this] {
         const auto aspect_ratio = static_cast<float>(m_viewport_size.width())
             / static_cast<float>(m_viewport_size.height());
-        return glm::perspective(45.f, aspect_ratio, 0.1f, 100.f);
+        return glm::perspective(45.f, aspect_ratio, 0.1f, 1024.f);
     }();
 
     // clear screen to black
